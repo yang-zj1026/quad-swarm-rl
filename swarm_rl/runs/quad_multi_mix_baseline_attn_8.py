@@ -1,4 +1,4 @@
-from sample_factory.launcher.run_description import RunDescription, Experiment, ParamGrid
+from sample_factory.runner.run_description import RunDescription, Experiment, ParamGrid
 
 from swarm_rl.runs.quad_multi_mix_baseline import QUAD_BASELINE_CLI_8
 
@@ -13,7 +13,7 @@ _experiment = Experiment(
     _params.generate_params(randomize=False),
 )
 
-RUN_DESCRIPTION = RunDescription('paper_quads_multi_mix_baseline_8a_attn_v116', experiments=[_experiment])
+RUN_DESCRIPTION = RunDescription('test_gym', experiments=[_experiment])
 
 # On Brain server, when you use num_workers = 72, if the system reports: Resource temporarily unavailable,
 # then, try to use two commands below
