@@ -5,7 +5,7 @@ from swarm_rl.env_wrappers.additional_input import QuadsAdditionalInputWrapper
 from swarm_rl.env_wrappers.discrete_actions import QuadsDiscreteActionsWrapper
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper, \
     DEFAULT_QUAD_REWARD_SHAPING_SINGLE
-from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
+# from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
 
 
 class AnnealSchedule:
