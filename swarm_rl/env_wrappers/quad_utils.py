@@ -53,7 +53,7 @@ def make_quadrotor_env_single(cfg, render_mode=None, **kwargs):
     if cfg.quads_clip_input:
         env = QuadsAdditionalInputWrapper(env)
     
-    env = QuadEnvCompatibility(env, render_mode=render_mode)
+    # env = QuadEnvCompatibility(env, render_mode=render_mode)
     return env
 
 
@@ -123,7 +123,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         annealing = None
 
     env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing)
-    env = QuadEnvCompatibility(env, render_mode=render_mode)
+    # env = QuadEnvCompatibility(env, render_mode=render_mode)
     return env
 
 
