@@ -100,7 +100,7 @@ class QuadrotorDynamics:
         self.rot_nonort_coeff_maxsofar = 0.  # Statistics on the max number of nonorthogonality that we had
 
         self.since_last_svd = 0  # counter
-        self.since_last_svd_limit = 0.5  # in sec - how ofthen mandatory orthogonalization should be applied
+        self.since_last_svd_limit = 0.5  # in sec - how often mandatory orthogonalization should be applied
 
         self.eye = np.eye(3)
         ###############################################################
@@ -128,6 +128,10 @@ class QuadrotorDynamics:
             self.control_mx = np.eye(4)
         else:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
+
+        self.on_floor = False
+        self.hit_floor = False
+        self.mu = 0.3
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
@@ -286,7 +290,30 @@ class QuadrotorDynamics:
         # assert np.all(thrust_cmds >= 0)
         # assert np.all(thrust_cmds <= 1)
 
+        # TODO: when quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
+        if self.pos[2] <= self.arm:
+            if not self.on_floor:
+                vel, omega = npa(0, 0, 0), npa(0, 0, 0)
+                theta = np.arctan(self.rot[1][0] / self.rot[0][0])
+                if np.cos(theta) * self.rot[0][0] < 0:
+                    theta += np.pi
+                c, s = np.cos(theta), np.sin(theta)
+                # rot = np.eye(3)
+                # rot[:2, :2] = self.rot[:2, :2]
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                pos = npa(self.pos[0], self.pos[1], self.arm)
+                self.set_state(pos, vel, rot, omega)
+                self.reset()
+                self.on_floor = True
+
+            if not self.hit_floor:
+                self.hit_floor = True
+            # else:
+            #     self.pos[2] = self.arm
+
         thrust_cmds = np.clip(thrust_cmds, a_min=0., a_max=1.)
+        # if self.hit_floor:
+        #     thrust_cmds = npa(1, 1, 1, 1)
         ###################################
         ## Filtering the thruster and adding noise
         # I use the multiplier 4, since 4*T ~ time for a step response to finish, where
@@ -430,10 +457,21 @@ class QuadrotorDynamics:
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos_before_clip = self.pos.copy()
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
+        # if self.on_floor:
+        #     self.pos[2] = self.arm
         # self.vel[np.equal(self.pos, self.pos_before_clip)] = 0.
 
         ## Computing accelerations
-        acc = [0, 0, -GRAV] + (1.0 / self.mass) * np.matmul(self.rot, (thrust + rotor_drag_force))
+        # Add friction if drone is on the floor
+        force = np.matmul(self.rot, (thrust + rotor_drag_force))
+        if self.on_floor:
+            f = self.mu * GRAV * npa(np.sign(force[0]), np.sign(force[1]), 0) * self.mass
+            # Since fiction cannot be greater than force, we need to clip it
+            for i in range(2):
+                if np.abs(f[i]) > np.abs(force[i]):
+                    f[i] = force[i]
+            force -= f
+        acc = [0, 0, -GRAV] + (1.0 / self.mass) * force
         # acc[mask] = 0. #If we leave the room - stop accelerating
         self.acc = acc
 
@@ -445,14 +483,33 @@ class QuadrotorDynamics:
         # that includes gravity with the opposite sign
         self.accelerometer = np.matmul(self.rot.T, acc + [0, 0, self.gravity])
 
+        if self.on_floor:
+            if self.pos[2] > self.arm + EPS:
+                self.on_floor = False
+            else:
+                # rot = np.eye(3)
+                # rot[:2, :2] = self.rot[:2, :2]
+                theta = np.arctan(self.rot[1][0] / self.rot[0][0])
+                if np.cos(theta) * self.rot[0][0] < 0:
+                    theta += np.pi
+                c, s = np.cos(theta), np.sin(theta)
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                self.rot = rot
+
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         self.motor_tau_up, self.motor_tau_down, self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, \
-        self.torque, self.rot, self.since_last_svd, self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force = \
-            calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, EPS, self.motor_damp_time_up, self.motor_damp_time_down,
-                         self.thrust_cmds_damp, self.thrust_rot_damp, thrust_noise, self.thrust_max, self.motor_linearity,
-                         self.prop_crossproducts, self.prop_ccw, self.torque_max, self.rot, np.float64(self.omega),
-                         self.eye, self.since_last_svd, self.since_last_svd_limit, self.inertia,
-                         self.damp_omega_quadratic, self.omega_max, self.pos, self.vel)
+        self.torque, self.rot, self.since_last_svd, self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, \
+        self.vel, self.on_floor = \
+            calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, EPS, self.motor_damp_time_up,
+                                                                  self.motor_damp_time_down,
+                                                                  self.thrust_cmds_damp, self.thrust_rot_damp,
+                                                                  thrust_noise, self.thrust_max, self.motor_linearity,
+                                                                  self.prop_crossproducts, self.prop_ccw,
+                                                                  self.torque_max, self.rot, np.float64(self.omega),
+                                                                  self.eye, self.since_last_svd,
+                                                                  self.since_last_svd_limit, self.inertia,
+                                                                  self.damp_omega_quadratic, self.omega_max, self.pos,
+                                                                  self.vel, self.arm, self.on_floor)
 
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
@@ -461,9 +518,24 @@ class QuadrotorDynamics:
         grav_cnst_arr = np.float64([0, 0, -GRAV])
         sum_thr_drag = thrust + rotor_drag_force
         grav_arr = np.float64([0, 0, self.gravity])
-        self.vel, self.acc, self.accelerometer = compute_velocity_and_acceleration(self.vel, grav_cnst_arr, self.mass, self.rot,
-                                                                         sum_thr_drag, self.vel_damp, dt, self.rot.T,
-                                                                         grav_arr)
+        self.vel, self.acc, self.accelerometer = compute_velocity_and_acceleration(self.vel, grav_cnst_arr, self.mass,
+                                                                                   self.rot, sum_thr_drag,
+                                                                                   self.vel_damp, dt,
+                                                                                   self.rot.T, grav_arr,
+                                                                                   self.on_floor, self.mu)
+
+        if self.on_floor:
+            if self.pos[2] > self.arm + EPS:
+                self.on_floor = False
+            else:
+                # rot = np.eye(3)
+                # rot[:2, :2] = self.rot[:2, :2]
+                theta = np.arctan(self.rot[1][0] / self.rot[0][0])
+                if np.cos(theta) * self.rot[0][0] < 0:
+                    theta += np.pi
+                c, s = np.cos(theta), np.sin(theta)
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                self.rot = rot
 
     def reset(self):
         self.thrust_cmds_damp = np.zeros([4])
@@ -708,9 +780,11 @@ class QuadrotorSingle:
                  dynamics_randomize_every=None, dyn_sampler_1=None, dyn_sampler_2=None,
                  raw_control=True, raw_control_zero_middle=True, dim_mode='3D', tf_control=False, sim_freq=200.,
                  sim_steps=2,
-                 obs_repr="xyz_vxyz_R_omega", ep_time=7, obstacles_num=0, room_length=10, room_width=10, room_height=10, init_random_state=False,
+                 obs_repr="xyz_vxyz_R_omega", ep_time=7, obstacles_num=0, room_length=10, room_width=10, room_height=10,
+                 init_random_state=False,
                  rew_coeff=None, sense_noise=None, verbose=False, gravity=GRAV,
-                 t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False, swarm_obs='none', num_agents=1,quads_settle=False,
+                 t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
+                 swarm_obs='none', num_agents=1, quads_settle=False,
                  quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
                  view_mode='local', obstacle_mode='no_obstacles', obstacle_num=0, num_use_neighbor_obs=0):
         np.seterr(under='ignore')
@@ -785,7 +859,8 @@ class QuadrotorSingle:
         # self.yaw_max = np.pi   #rad
 
         self.room_box = np.array(
-            [[-self.room_length/2, -self.room_width/2, 0], [self.room_length/2, self.room_width/2, self.room_height]]) # diagonal coordinates of box (?)
+            [[-self.room_length / 2, -self.room_width / 2, 0],
+             [self.room_length / 2, self.room_width / 2, self.room_height]])  # diagonal coordinates of box (?)
         self.state_vector = self.state_vector = getattr(get_state, "state_" + self.obs_repr)
 
         ## WARN: If you
@@ -896,7 +971,8 @@ class QuadrotorSingle:
     def update_env(self, room_length, room_width, room_height):
         self.room_length, self.room_width, self.room_height = room_length, room_width, room_height
         self.room_box = np.array(
-            [[-self.room_length/2, -self.room_width/2, 0], [self.room_length/2, self.room_width/2, self.room_height]])  # diagonal coordinates of box (?)
+            [[-self.room_length / 2, -self.room_width / 2, 0],
+             [self.room_length / 2, self.room_width / 2, self.room_height]])  # diagonal coordinates of box (?)
         self.dynamics.room_box = self.room_box
 
     def update_sense_noise(self, sense_noise):
@@ -932,7 +1008,7 @@ class QuadrotorSingle:
         ################################################################################
         ## SCENE
         if self.obstacles_num > 0:
-            #TODO: Fix unresolved reference error here???
+            # TODO: Fix unresolved reference error here???
             self.obstacles = _random_obstacles(None, obstacles_num, self.room_size, self.dynamics.arm)
         else:
             self.obstacles = None
@@ -977,12 +1053,15 @@ class QuadrotorSingle:
             "act": [np.zeros(4), np.ones(4)],
             "quat": [-np.ones(4), np.ones(4)],
             "euler": [-np.pi * np.ones(3), np.pi * np.ones(3)],
-            "rxyz": [-room_range, room_range], # rxyz stands for relative pos between quadrotors
-            "rvxyz": [-2.0 * self.dynamics.vxyz_max * np.ones(3), 2.0 * self.dynamics.vxyz_max * np.ones(3)], # rvxyz stands for relative velocity between quadrotors
-            "roxyz": [-room_range, room_range], # roxyz stands for relative pos between quadrotor and obstacle
-            "rovxyz": [-20.0 * np.ones(3), 20.0 * np.ones(3)], # rovxyz stands for relative velocity between quadrotor and obstacle
+            "rxyz": [-room_range, room_range],  # rxyz stands for relative pos between quadrotors
+            "rvxyz": [-2.0 * self.dynamics.vxyz_max * np.ones(3), 2.0 * self.dynamics.vxyz_max * np.ones(3)],
+            # rvxyz stands for relative velocity between quadrotors
+            "roxyz": [-room_range, room_range],  # roxyz stands for relative pos between quadrotor and obstacle
+            "rovxyz": [-20.0 * np.ones(3), 20.0 * np.ones(3)],
+            # rovxyz stands for relative velocity between quadrotor and obstacle
             "osize": [np.zeros(3), 20.0 * np.ones(3)],  # obstacle size, [[0., 0., 0.], [20., 20., 20.]]
-            "otype": [np.zeros(1), 20.0 * np.ones(1)],  # obstacle type, [[0.], [20.]], which means we can support 21 types of obstacles
+            "otype": [np.zeros(1), 20.0 * np.ones(1)],
+            # obstacle type, [[0.], [20.]], which means we can support 21 types of obstacles
             "goal": [-room_range, room_range],
             "nbr_dist": [np.zeros(1), room_max_dist],
             "nbr_goal_dist": [np.zeros(1), room_max_dist],
@@ -997,7 +1076,8 @@ class QuadrotorSingle:
         elif self.swarm_obs == 'pos_vel_goals' and self.num_agents > 1:
             obs_comps = obs_comps + (['rxyz'] + ['rvxyz'] + ['goal']) * self.num_use_neighbor_obs
         elif self.swarm_obs == 'pos_vel_goals_ndist_gdist' and self.num_agents > 1:
-            obs_comps = obs_comps + (['rxyz'] + ['rvxyz'] + ['goal'] + ['nbr_dist'] + ['nbr_goal_dist']) * self.num_use_neighbor_obs
+            obs_comps = obs_comps + (
+                        ['rxyz'] + ['rvxyz'] + ['goal'] + ['nbr_dist'] + ['nbr_goal_dist']) * self.num_use_neighbor_obs
         if self.obstacle_mode != 'no_obstacles' and self.obstacle_num > 0:
             obs_comps = obs_comps + (['roxyz'] + ['rovxyz'] + ['osize'] + ['otype']) * self.obstacle_num
 
@@ -1052,10 +1132,11 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed,
                                                    self.time_remain,
-                                                   rew_coeff=self.rew_coeff, action_prev=self.actions[1], quads_settle=self.quads_settle,
+                                                   rew_coeff=self.rew_coeff, action_prev=self.actions[1],
+                                                   quads_settle=self.quads_settle,
                                                    quads_settle_range_meters=self.quads_settle_range_meters,
                                                    quads_vel_reward_out_range=self.quads_vel_reward_out_range
-        )
+                                                   )
         self.tick += 1
         done = self.tick > self.ep_len  # or self.crashed
         sv = self.state_vector(self)
@@ -1129,7 +1210,6 @@ class QuadrotorSingle:
         ## Updating params
         self.update_dynamics(dynamics_params=self.dynamics_params)
 
-
     def _reset(self):
         ## I have to update state vector 
         ##############################################################
@@ -1169,7 +1249,8 @@ class QuadrotorSingle:
             else:
                 # It already sets the state internally
                 _, vel, rotation, omega = self.dynamics.random_state(
-                    box=(self.room_length, self.room_width, self.room_height), vel_max=self.max_init_vel, omega_max=self.max_init_omega
+                    box=(self.room_length, self.room_width, self.room_height), vel_max=self.max_init_vel,
+                    omega_max=self.max_init_omega
                 )
         else:
             ## INIT HORIZONTALLY WITH 0 VEL and OMEGA
@@ -1188,6 +1269,7 @@ class QuadrotorSingle:
         self.init_state = [pos, vel, rotation, omega]
         self.dynamics.set_state(pos, vel, rotation, omega)
         self.dynamics.reset()
+        self.dynamics.on_floor = False
 
         # Reseting some internal state (counters, etc)
         self.crashed = False
@@ -1632,7 +1714,24 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                                                           thrust_rot_damp, thr_noise, thrust_max, motor_linearity,
                                                           prop_crossproducts, prop_ccw, torque_max, rot, omega,
                                                           eye, since_last_svd, since_last_svd_limit, inertia,
-                                                          damp_omega_quadratic, omega_max, pos, vel):
+                                                          damp_omega_quadratic, omega_max, pos, vel, arm, on_floor):
+    # ToDo: add friction here
+    # Once the drone hit the floor, change the normal to (0, 0, 1), and set linear velocity, angular velocity to 0.
+    if pos[2] <= arm:
+        if not on_floor:
+            vel, omega = np.zeros(3), np.zeros(3)
+            theta = np.arctan(rot[1][0] / rot[0][0])
+            if np.cos(theta) * rot[0][0] < 0:
+                theta += np.pi
+            c, s = np.cos(theta), np.sin(theta)
+            # rot = np.eye(3)
+            # rot[:2, :2] = self.rot[:2, :2]
+            rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            pos = np.array((pos[0], pos[1], arm))
+            # self.set_state(pos, vel, rot, omega)
+            thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
+            on_floor = True
+
     # Filtering the thruster and adding noise
     thrust_cmds = np.clip(thrust_cmds, 0., 1.)
     motor_tau_up = 4 * dt / (motor_damp_time_up + eps)
@@ -1698,14 +1797,22 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     pos = pos + dt * vel
 
     return motor_tau_up, motor_tau_down, thrust_rot_damp, thrust_cmds_damp, torques, \
-           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force
+           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor
 
 
 @njit
 def compute_velocity_and_acceleration(vel, grav_cnst_arr, mass, rot, sum_thr_drag, vel_damp, dt, rot_tpose,
-                                      grav_arr):
+                                      grav_arr, on_floor, mu=0.3):
     # Computing accelerations
-    acc = grav_cnst_arr + ((1.0 / mass) * (rot @ sum_thr_drag))
+    force = rot @ sum_thr_drag
+    if on_floor:
+        f = mu * GRAV * np.array((np.sign(force[0]), np.sign(force[1]), 0)) * mass
+        # Since fiction cannot be greater than force, we need to clip it
+        for i in range(2):
+            if np.abs(f[i]) > np.abs(force[i]):
+                f[i] = force[i]
+        force -= f
+    acc = grav_cnst_arr + ((1.0 / mass) * force)
 
     # Computing velocities
     vel = (1.0 - vel_damp) * vel + dt * acc
