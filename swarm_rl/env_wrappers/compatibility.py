@@ -49,7 +49,15 @@ class QuadEnvCompatibility(gym.Wrapper):
         if isinstance(info, dict) and isinstance(done, bool):
                 done = [done]
 
-        return convert_to_terminated_truncated_step_api((obs, reward, done, info), is_vector_env=True)
+        if any(done):
+            terminated = [False for _ in range(self.env.num_agents)]
+            truncated = [True for _ in range(self.env.num_agents)]
+        else:
+            terminated = done
+            truncated = [False for _ in range(self.env.num_agents)]
+
+        # return convert_to_terminated_truncated_step_api((obs, reward, done, info), is_vector_env=True)
+        return obs, reward, terminated, truncated, info
 
     def render(self) -> Any:
         """Renders the environment.
