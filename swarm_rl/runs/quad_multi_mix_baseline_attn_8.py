@@ -15,7 +15,7 @@ _experiment = Experiment(
     _params.generate_params(randomize=False),
 )
 
-run_name = timeStamped("test_anneal", fmt="{fname}_%Y%m%d_%H%M")
+run_name = timeStamped("floor", fmt="{fname}_%Y%m%d_%H%M")
 
 RUN_DESCRIPTION = RunDescription(run_name, experiments=[_experiment])
 
