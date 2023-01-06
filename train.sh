@@ -1,4 +1,4 @@
-python -m swarm_rl.train --env=quadrotor_multi --train_for_env_steps=1000000000 --algo=APPO \
+python -m swarm_rl.train --env=quadrotor_multi --train_for_env_steps=500000000 --algo=APPO \
 --use_rnn=False \
 --num_workers=12 --num_envs_per_worker=4 \
 --learning_rate=0.0001 --ppo_clip_value=5.0 \
@@ -13,4 +13,4 @@ python -m swarm_rl.train --env=quadrotor_multi --train_for_env_steps=1000000000 
 --quads_local_metric=dist --quads_local_coeff=1.0 --quads_num_agents=8 --quads_collision_reward=5.0 \
 --quads_collision_smooth_max_penalty=10.0 --quads_neighbor_encoder_type=attention \
 --replay_buffer_sample_prob=0.75 --anneal_collision_steps=300000000 \
---experiment=swarm_rl --with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_group=floor
+--experiment=floor_disable_orient --with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_group=floor

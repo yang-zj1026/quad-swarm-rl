@@ -131,7 +131,7 @@ class QuadrotorDynamics:
 
         self.on_floor = False
         self.hit_floor = False
-        self.mu = 0.3
+        self.mu = 0.0
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
@@ -658,7 +658,8 @@ class QuadrotorDynamics:
 
 # reasonable reward function for hovering at a goal and not flying too high
 def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, rew_coeff, action_prev,
-                            quads_settle=False, quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8):
+                            quads_settle=False, quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
+                            on_floor=False):
     ##################################################
     ## log to create a sharp peak at the goal
     dist = np.linalg.norm(goal - dynamics.pos)
@@ -687,8 +688,12 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
 
     ##################################################
     ## Loss orientation
-    cost_orient_raw = -dynamics.rot[2, 2]
-    cost_orient = rew_coeff["orient"] * cost_orient_raw
+    if on_floor:
+        cost_orient_raw = 0
+        cost_orient = 0
+    else:
+        cost_orient_raw = -dynamics.rot[2, 2]
+        cost_orient = rew_coeff["orient"] * cost_orient_raw
 
     cost_yaw_raw = -dynamics.rot[0, 0]
     cost_yaw = rew_coeff["yaw"] * cost_yaw_raw
@@ -1124,6 +1129,8 @@ class QuadrotorSingle:
             self.crashed = self.obstacles.detect_collision(self.dynamics)
         else:
             self.crashed = self.dynamics.pos[2] <= self.dynamics.arm
+
+        # TODO: add crashed_wall and crashed_ceiling
         self.crashed = self.crashed or not np.array_equal(self.dynamics.pos,
                                                           np.clip(self.dynamics.pos,
                                                                   a_min=self.room_box[0],
@@ -1135,7 +1142,8 @@ class QuadrotorSingle:
                                                    rew_coeff=self.rew_coeff, action_prev=self.actions[1],
                                                    quads_settle=self.quads_settle,
                                                    quads_settle_range_meters=self.quads_settle_range_meters,
-                                                   quads_vel_reward_out_range=self.quads_vel_reward_out_range
+                                                   quads_vel_reward_out_range=self.quads_vel_reward_out_range,
+                                                   on_floor=self.dynamics.on_floor
                                                    )
         self.tick += 1
         done = self.tick > self.ep_len  # or self.crashed
