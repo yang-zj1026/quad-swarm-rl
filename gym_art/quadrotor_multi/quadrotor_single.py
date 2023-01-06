@@ -494,7 +494,9 @@ class QuadrotorDynamics:
                     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                pos = npa(self.pos[0], self.pos[1], self.arm)
                 self.rot = rot
+                self.pos = pos
 
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         self.motor_tau_up, self.motor_tau_down, self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, \
@@ -535,7 +537,9 @@ class QuadrotorDynamics:
                     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                pos = np.array((self.pos[0], self.pos[1], self.arm))
                 self.rot = rot
+                self.pos = pos
 
     def reset(self):
         self.thrust_cmds_damp = np.zeros([4])
@@ -689,11 +693,14 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
     ##################################################
     ## Loss orientation
     if on_floor:
-        cost_orient_raw = 0
-        cost_orient = 0
+        cost_orient_raw = -1.
+        # cost_orient = -1.
+        # cost_on_floor_raw = 1.
+        # cost_on_floor = 1.
     else:
         cost_orient_raw = -dynamics.rot[2, 2]
-        cost_orient = rew_coeff["orient"] * cost_orient_raw
+
+    cost_orient = rew_coeff["orient"] * cost_orient_raw
 
     cost_yaw_raw = -dynamics.rot[0, 0]
     cost_yaw = rew_coeff["yaw"] * cost_yaw_raw
@@ -728,7 +735,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         cost_attitude,
         cost_spin,
         cost_act_change,
-        cost_vel
+        cost_vel,
+        cost_on_floor
     ])
 
     rew_info = {
@@ -744,6 +752,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         "rew_act_change": -cost_act_change,
         "rew_vel": -cost_vel,
 
+
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
         'rewraw_action': -cost_effort_raw,
@@ -755,6 +764,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         "rewraw_spin": -cost_spin_raw,
         "rewraw_act_change": -cost_act_change_raw,
         "rewraw_vel": -cost_vel_raw,
+        # "rew_raw_on_floor": -cost_on_floor_raw,
     }
 
     # report rewards in the same format as they are added to the actual agent's reward (easier to debug this way)
