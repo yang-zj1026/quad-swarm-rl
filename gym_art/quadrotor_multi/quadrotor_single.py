@@ -298,8 +298,6 @@ class QuadrotorDynamics:
                 if np.cos(theta) * self.rot[0][0] < 0:
                     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
-                # rot = np.eye(3)
-                # rot[:2, :2] = self.rot[:2, :2]
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = npa(self.pos[0], self.pos[1], self.arm)
                 self.set_state(pos, vel, rot, omega)
@@ -693,7 +691,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
     ##################################################
     ## Loss orientation
     if on_floor:
-        cost_orient_raw = -1.
+        cost_orient_raw = 0.
         # cost_orient = -1.
         # cost_on_floor_raw = 1.
         # cost_on_floor = 1.
@@ -736,7 +734,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         cost_spin,
         cost_act_change,
         cost_vel,
-        cost_on_floor
+        # cost_on_floor
     ])
 
     rew_info = {
