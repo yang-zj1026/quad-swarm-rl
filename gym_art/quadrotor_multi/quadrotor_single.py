@@ -1756,7 +1756,7 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 flipped = True
             else:
-                theta = np.arctan2(rot[1][0] / rot[0][0])
+                theta = np.arctan2(rot[1][0], rot[0][0])
                 # if np.cos(theta) * rot[0][0] < 0:
                 #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
