@@ -29,6 +29,7 @@ import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
 
 # MATH
 import matplotlib.pyplot as plt
+import numpy as np
 import transforms3d as t3d
 
 # GYM
@@ -131,6 +132,7 @@ class QuadrotorDynamics:
 
         self.on_floor = False
         self.hit_floor = False
+        self.flipped = False
         self.mu = 0.0
 
     @staticmethod
@@ -294,11 +296,17 @@ class QuadrotorDynamics:
         if self.pos[2] <= self.arm:
             if not self.on_floor:
                 vel, omega = npa(0, 0, 0), npa(0, 0, 0)
-                theta = np.arctan(self.rot[1][0] / self.rot[0][0])
-                if np.cos(theta) * self.rot[0][0] < 0:
-                    theta += np.pi
+                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                # if np.cos(theta) * self.rot[0][0] < 0:
+                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                if self.rot[2, 2] < 0:
+                    self.flipped = True
+                    rot = randyaw()
+                    while np.dot(rotation[:, 0], to_xyhat(-self.pos)) < 0.5:
+                        rot = randyaw()
+                else:
+                    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = npa(self.pos[0], self.pos[1], self.arm)
                 self.set_state(pos, vel, rot, omega)
                 self.reset()
@@ -487,9 +495,9 @@ class QuadrotorDynamics:
             else:
                 # rot = np.eye(3)
                 # rot[:2, :2] = self.rot[:2, :2]
-                theta = np.arctan(self.rot[1][0] / self.rot[0][0])
-                if np.cos(theta) * self.rot[0][0] < 0:
-                    theta += np.pi
+                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                # if np.cos(theta) * self.rot[0][0] < 0:
+                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = npa(self.pos[0], self.pos[1], self.arm)
@@ -499,7 +507,7 @@ class QuadrotorDynamics:
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         self.motor_tau_up, self.motor_tau_down, self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, \
         self.torque, self.rot, self.since_last_svd, self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, \
-        self.vel, self.on_floor = \
+        self.vel, self.on_floor, self.flipped = \
             calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, EPS, self.motor_damp_time_up,
                                                                   self.motor_damp_time_down,
                                                                   self.thrust_cmds_damp, self.thrust_rot_damp,
@@ -530,9 +538,9 @@ class QuadrotorDynamics:
             else:
                 # rot = np.eye(3)
                 # rot[:2, :2] = self.rot[:2, :2]
-                theta = np.arctan(self.rot[1][0] / self.rot[0][0])
-                if np.cos(theta) * self.rot[0][0] < 0:
-                    theta += np.pi
+                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                # if np.cos(theta) * self.rot[0][0] < 0:
+                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = np.array((self.pos[0], self.pos[1], self.arm))
@@ -661,7 +669,7 @@ class QuadrotorDynamics:
 # reasonable reward function for hovering at a goal and not flying too high
 def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, rew_coeff, action_prev,
                             quads_settle=False, quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
-                            on_floor=False):
+                            on_floor=False, flipped=False):
     ##################################################
     ## log to create a sharp peak at the goal
     dist = np.linalg.norm(goal - dynamics.pos)
@@ -693,10 +701,11 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
     if on_floor:
         cost_orient_raw = 0.
         # cost_orient = -1.
-        # cost_on_floor_raw = 1.
-        # cost_on_floor = 1.
     else:
         cost_orient_raw = -dynamics.rot[2, 2]
+
+    if flipped:
+        cost_flipped = 10
 
     cost_orient = rew_coeff["orient"] * cost_orient_raw
 
@@ -734,6 +743,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         cost_spin,
         cost_act_change,
         cost_vel,
+        cost_flipped
         # cost_on_floor
     ])
 
@@ -749,6 +759,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         "rew_spin": -cost_spin,
         "rew_act_change": -cost_act_change,
         "rew_vel": -cost_vel,
+        "rew_flipped": -cost_flipped,
 
 
         "rewraw_main": -cost_pos_raw,
@@ -1151,8 +1162,11 @@ class QuadrotorSingle:
                                                    quads_settle=self.quads_settle,
                                                    quads_settle_range_meters=self.quads_settle_range_meters,
                                                    quads_vel_reward_out_range=self.quads_vel_reward_out_range,
-                                                   on_floor=self.dynamics.on_floor
+                                                   on_floor=self.dynamics.on_floor, flipped=self.dynamics.flipped
                                                    )
+        if self.dynamics.flipped:
+            self.dynamics.flipped = False
+
         self.tick += 1
         done = self.tick > self.ep_len  # or self.crashed
         sv = self.state_vector(self)
@@ -1736,13 +1750,19 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     if pos[2] <= arm:
         if not on_floor:
             vel, omega = np.zeros(3), np.zeros(3)
-            theta = np.arctan(rot[1][0] / rot[0][0])
-            if np.cos(theta) * rot[0][0] < 0:
-                theta += np.pi
-            c, s = np.cos(theta), np.sin(theta)
-            # rot = np.eye(3)
-            # rot[:2, :2] = self.rot[:2, :2]
-            rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            if rot[2, 2] < 0:
+                theta = np.random.uniform(-np.pi, np.pi)
+                c, s = np.cos(theta), np.sin(theta)
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                flipped = True
+            else:
+                theta = np.arctan2(rot[1][0] / rot[0][0])
+                # if np.cos(theta) * rot[0][0] < 0:
+                #     theta += np.pi
+                c, s = np.cos(theta), np.sin(theta)
+                # rot = np.eye(3)
+                # rot[:2, :2] = self.rot[:2, :2]
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
             pos = np.array((pos[0], pos[1], arm))
             # self.set_state(pos, vel, rot, omega)
             thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
@@ -1813,7 +1833,7 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     pos = pos + dt * vel
 
     return motor_tau_up, motor_tau_down, thrust_rot_damp, thrust_cmds_damp, torques, \
-           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor
+           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor, flipped
 
 
 @njit
