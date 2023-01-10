@@ -539,13 +539,13 @@ class QuadrotorDynamics:
             else:
                 # rot = np.eye(3)
                 # rot[:2, :2] = self.rot[:2, :2]
-                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                #theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
                 # if np.cos(theta) * self.rot[0][0] < 0:
                 #     theta += np.pi
-                c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                #c, s = np.cos(theta), np.sin(theta)
+                #rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = np.array((self.pos[0], self.pos[1], self.arm))
-                self.rot = rot
+                #self.rot = rot
                 self.pos = pos
 
     def reset(self):
