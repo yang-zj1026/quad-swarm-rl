@@ -295,20 +295,21 @@ class QuadrotorDynamics:
         # TODO: when quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
         if self.pos[2] <= self.arm:
             if not self.on_floor:
-                vel, omega = npa(0, 0, 0), npa(0, 0, 0)
-                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                #vel, omega = npa(0, 0, 0), npa(0, 0, 0)
+                #theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
                 # if np.cos(theta) * self.rot[0][0] < 0:
                 #     theta += np.pi
-                c, s = np.cos(theta), np.sin(theta)
-                if self.rot[2, 2] < 0:
+                #c, s = np.cos(theta), np.sin(theta)
+                #if self.rot[2, 2] < 0:
                     # self.flipped = True
-                    rot = randyaw()
-                    while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
-                        rot = randyaw()
-                else:
-                    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                #    rot = randyaw()
+                #    while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
+                #        rot = randyaw()
+                #else:
+                #    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                vel = npa(0, 0, 0)
                 pos = npa(self.pos[0], self.pos[1], self.arm)
-                self.set_state(pos, vel, rot, omega)
+                self.set_state(pos, vel, self.rot, self.omega)
                 self.reset()
                 self.on_floor = True
 
@@ -495,13 +496,13 @@ class QuadrotorDynamics:
             else:
                 # rot = np.eye(3)
                 # rot[:2, :2] = self.rot[:2, :2]
-                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                #theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
                 # if np.cos(theta) * self.rot[0][0] < 0:
                 #     theta += np.pi
-                c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                #c, s = np.cos(theta), np.sin(theta)
+                #rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = npa(self.pos[0], self.pos[1], self.arm)
-                self.rot = rot
+                #self.rot = rot
                 self.pos = pos
 
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
@@ -538,13 +539,13 @@ class QuadrotorDynamics:
             else:
                 # rot = np.eye(3)
                 # rot[:2, :2] = self.rot[:2, :2]
-                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                #theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
                 # if np.cos(theta) * self.rot[0][0] < 0:
                 #     theta += np.pi
-                c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                #c, s = np.cos(theta), np.sin(theta)
+                #rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = np.array((self.pos[0], self.pos[1], self.arm))
-                self.rot = rot
+                #self.rot = rot
                 self.pos = pos
 
     def reset(self):
@@ -1750,19 +1751,20 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     # Once the drone hit the floor, change the normal to (0, 0, 1), and set linear velocity, angular velocity to 0.
     if pos[2] <= arm:
         if not on_floor:
-            vel, omega = np.zeros(3), np.zeros(3)
-            if rot[2, 2] < 0:
-                theta = np.random.uniform(-np.pi, np.pi)
-                c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
-            else:
-                theta = np.arctan2(rot[1][0], rot[0][0])
+            #vel, omega = np.zeros(3), np.zeros(3)
+            #if rot[2, 2] < 0:
+            #    theta = np.random.uniform(-np.pi, np.pi)
+            #    c, s = np.cos(theta), np.sin(theta)
+            #    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            #else:
+            #    theta = np.arctan2(rot[1][0], rot[0][0])
                 # if np.cos(theta) * rot[0][0] < 0:
                 #     theta += np.pi
-                c, s = np.cos(theta), np.sin(theta)
+            #    c, s = np.cos(theta), np.sin(theta)
                 # rot = np.eye(3)
                 # rot[:2, :2] = self.rot[:2, :2]
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            #    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            vel = np.zeros(3)
             pos = np.array((pos[0], pos[1], arm))
             # self.set_state(pos, vel, rot, omega)
             thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
