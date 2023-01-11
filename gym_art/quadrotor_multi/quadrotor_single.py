@@ -297,16 +297,15 @@ class QuadrotorDynamics:
             if not self.on_floor:
                 vel, omega = npa(0, 0, 0), npa(0, 0, 0)
                 theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
-                # if np.cos(theta) * self.rot[0][0] < 0:
-                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 if self.rot[2, 2] < 0:
                     self.flipped = True
                     rot = randyaw()
-                    while np.dot(rotation[:, 0], to_xyhat(-self.pos)) < 0.5:
+                    while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
                         rot = randyaw()
                 else:
                     rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+
                 pos = npa(self.pos[0], self.pos[1], self.arm)
                 self.set_state(pos, vel, rot, omega)
                 self.reset()
@@ -493,11 +492,7 @@ class QuadrotorDynamics:
             if self.pos[2] > self.arm + EPS:
                 self.on_floor = False
             else:
-                # rot = np.eye(3)
-                # rot[:2, :2] = self.rot[:2, :2]
                 theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
-                # if np.cos(theta) * self.rot[0][0] < 0:
-                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = npa(self.pos[0], self.pos[1], self.arm)
@@ -536,11 +531,7 @@ class QuadrotorDynamics:
             if self.pos[2] > self.arm + EPS:
                 self.on_floor = False
             else:
-                # rot = np.eye(3)
-                # rot[:2, :2] = self.rot[:2, :2]
                 theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
-                # if np.cos(theta) * self.rot[0][0] < 0:
-                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
                 pos = np.array((self.pos[0], self.pos[1], self.arm))
@@ -1757,14 +1748,9 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                 flipped = True
             else:
                 theta = np.arctan2(rot[1][0], rot[0][0])
-                # if np.cos(theta) * rot[0][0] < 0:
-                #     theta += np.pi
                 c, s = np.cos(theta), np.sin(theta)
-                # rot = np.eye(3)
-                # rot[:2, :2] = self.rot[:2, :2]
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
             pos = np.array((pos[0], pos[1], arm))
-            # self.set_state(pos, vel, rot, omega)
             thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
             on_floor = True
 
