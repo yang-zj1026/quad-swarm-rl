@@ -2,11 +2,11 @@ from sample_factory.launcher.run_description import RunDescription, Experiment, 
 
 from swarm_rl.runs.quad_multi_mix_baseline import QUAD_BASELINE_CLI_8
 
-from swarm_rl.utils import timeStamped
+from swarm_rl.utils import timeStamped, generate_seeds
 
 _params = ParamGrid([
     ('quads_neighbor_encoder_type', ['attention']),
-    ('seed', [0000, 1111, 2222, 3333]),
+    ('seed', generate_seeds(4)),
 ])
 
 _experiment = Experiment(
