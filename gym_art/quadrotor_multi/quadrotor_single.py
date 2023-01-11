@@ -133,7 +133,7 @@ class QuadrotorDynamics:
         self.on_floor = False
         self.hit_floor = False
         self.flipped = False
-        self.mu = 0.0
+        self.mu = 0.5
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
