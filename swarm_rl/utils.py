@@ -7,4 +7,4 @@ def timeStamped(fname, fmt='%Y-%m-%d-%H-%M-%S-{fname}'):
 
 
 def generate_seeds(num_seeds):
-    return [random.randrange(0, 9999999) for _ in range(num_seeds)]
+    return [random.randrange(0, 9999) for _ in range(num_seeds)]
