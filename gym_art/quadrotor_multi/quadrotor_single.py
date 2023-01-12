@@ -135,6 +135,8 @@ class QuadrotorDynamics:
         self.flipped = False
         self.mu = 0.5
 
+        self.crashed_wall = False
+
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
         """
@@ -292,7 +294,7 @@ class QuadrotorDynamics:
         # assert np.all(thrust_cmds >= 0)
         # assert np.all(thrust_cmds <= 1)
 
-        # TODO: when quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
+        # When quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
         if self.pos[2] <= self.arm:
             if not self.on_floor:
                 vel, omega = npa(0, 0, 0), npa(0, 0, 0)
@@ -461,9 +463,14 @@ class QuadrotorDynamics:
 
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos_before_clip = self.pos.copy()
+
+        # self.crashed_wall = not np.array_equal(
+        #     self.pos[:2], np.clip(self.pos[:2], a_min=self.room_box[0][:2], a_max=self.room_box[1][:2]))
+
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
-        # if self.on_floor:
-        #     self.pos[2] = self.arm
+
+        self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
+
         # self.vel[np.equal(self.pos, self.pos_before_clip)] = 0.
 
         ## Computing accelerations
@@ -514,8 +521,13 @@ class QuadrotorDynamics:
                                                                   self.damp_omega_quadratic, self.omega_max, self.pos,
                                                                   self.vel, self.arm, self.on_floor)
 
+        self.pos_before_clip = self.pos.copy()
+
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
+
+        # Detect collision with walls
+        self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
 
         # Set constant variables up for numba
         grav_cnst_arr = np.float64([0, 0, -GRAV])
