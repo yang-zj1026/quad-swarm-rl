@@ -407,11 +407,11 @@ def perform_collision_with_wall(drone_dyn, room_box, damp_low_speed_ratio=0.2, d
     elif y_list[1]:
         direction[1] = np.random.uniform(low=-1.0, high=-0.1)
 
-    direction[2] = np.random.uniform(low=-1.0, high=-0.5)
-    if z_list[0]:
-        direction[2] = np.random.uniform(low=0.0, high=0.01)
-    elif z_list[1]:
-        direction[2] = np.random.uniform(low=-1.0, high=-0.8)
+    direction[2] = np.random.uniform(low=-1.0, high=-0.8)
+    # if z_list[0]:
+    #     direction[2] = np.random.uniform(low=0.0, high=0.01)
+    # elif z_list[1]:
+    #     direction[2] = np.random.uniform(low=-1.0, high=-0.8)
 
     direction_mag = np.linalg.norm(direction)
     direction_norm = direction / (direction_mag + 0.00001)
