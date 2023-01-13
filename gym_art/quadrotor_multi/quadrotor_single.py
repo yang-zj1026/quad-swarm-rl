@@ -670,7 +670,7 @@ class QuadrotorDynamics:
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, rew_coeff, action_prev,
+def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_wall, time_remain, rew_coeff, action_prev,
                             quads_settle=False, quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
                             on_floor=False, flipped=False):
     ##################################################
@@ -732,8 +732,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
 
     ##################################################
     # loss crash
-    cost_crash_raw = float(crashed)
+    cost_crash_raw = float(crashed_floor or crashed_wall)
     cost_crash = rew_coeff["crash"] * cost_crash_raw
+    cost_crash_floor_raw = float(crashed_floor)
+    cost_crash_wall_raw = float(crashed_wall)
 
     reward = -dt * np.sum([
         cost_pos,
@@ -776,6 +778,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         "rewraw_spin": -cost_spin_raw,
         "rewraw_act_change": -cost_act_change_raw,
         "rewraw_vel": -cost_vel_raw,
+        "rewraw_crash_floor_raw": -cost_crash_floor_raw,
+        "rewraw_crash_wall_raw": -cost_crash_wall_raw
         # "rew_raw_on_floor": -cost_on_floor_raw,
     }
 
@@ -1148,19 +1152,20 @@ class QuadrotorSingle:
         # self.scene.update_state(self.dynamics, self.goal)
 
         if self.obstacles is not None:
-            self.crashed = self.obstacles.detect_collision(self.dynamics)
+            self.crashed_obstacle = self.obstacles.detect_collision(self.dynamics)
         else:
-            self.crashed = self.dynamics.pos[2] <= self.dynamics.arm
+            self.crashed_floor = self.dynamics.pos[2] <= self.dynamics.arm
 
         # TODO: add crashed_wall and crashed_ceiling
-        self.crashed = self.crashed or not np.array_equal(self.dynamics.pos,
-                                                          np.clip(self.dynamics.pos,
-                                                                  a_min=self.room_box[0],
-                                                                  a_max=self.room_box[1]))
+        # self.crashed = self.crashed or not np.array_equal(self.dynamics.pos,
+        #                                                   np.clip(self.dynamics.pos,
+        #                                                           a_min=self.room_box[0],
+        #                                                           a_max=self.room_box[1]))
+        self.crashed_wall = self.dynamics.crashed_wall
 
         self.time_remain = self.ep_len - self.tick
-        reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed,
-                                                   self.time_remain,
+        reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed_floor,
+                                                   self.crashed_wall, self.time_remain,
                                                    rew_coeff=self.rew_coeff, action_prev=self.actions[1],
                                                    quads_settle=self.quads_settle,
                                                    quads_settle_range_meters=self.quads_settle_range_meters,
