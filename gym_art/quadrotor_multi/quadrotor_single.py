@@ -472,7 +472,7 @@ class QuadrotorDynamics:
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
 
         self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
-        self.crashed_ceiling = self.pos_before_clip[2] != self.pos[2]
+        self.crashed_ceiling = self.pos_before_clip[2] > self.pos[2]
 
         # self.vel[np.equal(self.pos, self.pos_before_clip)] = 0.
 
@@ -531,7 +531,7 @@ class QuadrotorDynamics:
 
         # Detect collision with walls
         self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
-        self.crashed_ceiling = self.pos_before_clip[2] != self.pos[2]
+        self.crashed_ceiling = self.pos_before_clip[2] > self.pos[2]
 
         # Set constant variables up for numba
         grav_cnst_arr = np.float64([0, 0, -GRAV])
