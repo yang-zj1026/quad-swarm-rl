@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from gym_art.quadrotor_multi.quad_utils import perform_collision_between_drones, perform_collision_with_obstacle, \
     calculate_collision_matrix, calculate_drone_proximity_penalties, calculate_obst_drone_proximity_penalties, \
-    perform_collision_with_wall
+    perform_collision_with_wall, perform_collision_with_ceiling
 
 from gym_art.quadrotor_multi.quadrotor_multi_obstacles import MultiObstacles
 from gym_art.quadrotor_multi.quadrotor_single import GRAV, QuadrotorSingle
@@ -575,12 +575,19 @@ class QuadrotorEnvMulti(gym.Env):
     def simulate_collision_with_room(self):
         apply_room_collision_flag = False
         wall_collisions = np.array([env.dynamics.crashed_wall for env in self.envs])
+        ceiling_collisions = np.array([env.dynamics.crashed_ceiling for env in self.envs])
 
         wall_crash_list = np.where(wall_collisions >= 1)[0]
         if len(wall_crash_list) > 0:
             apply_room_collision_flag = True
             for val in wall_crash_list:
                 perform_collision_with_wall(drone_dyn=self.envs[val].dynamics, room_box=self.envs[0].room_box)
+
+        ceiling_crash_list = np.where(ceiling_collisions >= 1)[0]
+        if len(ceiling_crash_list) > 0:
+            apply_room_collision_flag = True
+            for val in ceiling_crash_list:
+                perform_collision_with_ceiling(drone_dyn=self.envs[val].dynamics)
 
         return apply_room_collision_flag
 

@@ -131,11 +131,13 @@ class QuadrotorDynamics:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
 
         self.on_floor = False
-        self.hit_floor = False
-        self.flipped = False
+        # self.hit_floor = False
+        # self.flipped = False
         self.mu = 0.5
 
+        ## Collision with room
         self.crashed_wall = False
+        self.crashed_ceiling = False
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
@@ -313,8 +315,8 @@ class QuadrotorDynamics:
                 self.reset()
                 self.on_floor = True
 
-            if not self.hit_floor:
-                self.hit_floor = True
+            # if not self.hit_floor:
+            #     self.hit_floor = True
             # else:
             #     self.pos[2] = self.arm
 
@@ -470,6 +472,7 @@ class QuadrotorDynamics:
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
 
         self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
+        self.crashed_ceiling = self.pos_before_clip[2] != self.pos[2]
 
         # self.vel[np.equal(self.pos, self.pos_before_clip)] = 0.
 
@@ -528,6 +531,7 @@ class QuadrotorDynamics:
 
         # Detect collision with walls
         self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
+        self.crashed_ceiling = self.pos_before_clip[2] != self.pos[2]
 
         # Set constant variables up for numba
         grav_cnst_arr = np.float64([0, 0, -GRAV])
@@ -670,8 +674,9 @@ class QuadrotorDynamics:
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_wall, time_remain, rew_coeff, action_prev,
-                            quads_settle=False, quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
+def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_wall, crashed_ceiling,
+                            time_remain, rew_coeff, action_prev, quads_settle=False,
+                            quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
                             on_floor=False, flipped=False):
     ##################################################
     ## log to create a sharp peak at the goal
@@ -732,10 +737,11 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
 
     ##################################################
     # loss crash
-    cost_crash_raw = float(crashed_floor or crashed_wall)
+    cost_crash_raw = float(crashed_floor or crashed_wall or crashed_ceiling)
     cost_crash = rew_coeff["crash"] * cost_crash_raw
     cost_crash_floor_raw = float(crashed_floor)
     cost_crash_wall_raw = float(crashed_wall)
+    cost_crash_ceiling_raw = float(crashed_wall)
 
     reward = -dt * np.sum([
         cost_pos,
@@ -779,8 +785,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
         "rewraw_act_change": -cost_act_change_raw,
         "rewraw_vel": -cost_vel_raw,
         "rewraw_crash_floor_raw": -cost_crash_floor_raw,
-        "rewraw_crash_wall_raw": -cost_crash_wall_raw
-        # "rew_raw_on_floor": -cost_on_floor_raw,
+        "rewraw_crash_wall_raw": -cost_crash_wall_raw,
+        "rewraw_crash_ceiling_raw": -cost_crash_ceiling_raw,
     }
 
     # report rewards in the same format as they are added to the actual agent's reward (easier to debug this way)
@@ -1162,10 +1168,11 @@ class QuadrotorSingle:
         #                                                           a_min=self.room_box[0],
         #                                                           a_max=self.room_box[1]))
         self.crashed_wall = self.dynamics.crashed_wall
+        self.crashed_ceiling = self.dynamics.crashed_ceiling
 
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed_floor,
-                                                   self.crashed_wall, self.time_remain,
+                                                   self.crashed_wall, self.crashed_ceiling, self.time_remain,
                                                    rew_coeff=self.rew_coeff, action_prev=self.actions[1],
                                                    quads_settle=self.quads_settle,
                                                    quads_settle_range_meters=self.quads_settle_range_meters,
