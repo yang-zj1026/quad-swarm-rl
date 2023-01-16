@@ -741,7 +741,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
     cost_crash = rew_coeff["crash"] * cost_crash_raw
     cost_crash_floor_raw = float(crashed_floor)
     cost_crash_wall_raw = float(crashed_wall)
-    cost_crash_ceiling_raw = float(crashed_wall)
+    cost_crash_ceiling_raw = float(crashed_ceiling)
 
     reward = -dt * np.sum([
         cost_pos,
