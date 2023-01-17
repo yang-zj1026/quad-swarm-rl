@@ -8,7 +8,8 @@ import gym
 from copy import deepcopy
 
 from gym_art.quadrotor_multi.quad_utils import perform_collision_between_drones, perform_collision_with_obstacle, \
-    calculate_collision_matrix, calculate_drone_proximity_penalties, calculate_obst_drone_proximity_penalties
+    calculate_collision_matrix, calculate_drone_proximity_penalties, calculate_obst_drone_proximity_penalties, \
+    perform_collision_with_wall, perform_collision_with_ceiling
 
 from gym_art.quadrotor_multi.quadrotor_multi_obstacles import MultiObstacles
 from gym_art.quadrotor_multi.quadrotor_single import GRAV, QuadrotorSingle
@@ -389,8 +390,6 @@ class QuadrotorEnvMulti(gym.Env):
 
             self.pos[i, :] = self.envs[i].dynamics.pos
 
-        obs = self.add_neighborhood_obs(obs)
-
         if self.use_replay_buffer and not self.activate_replay_buffer:
             self.crashes_last_episode += infos[0]["rewards"]["rew_crash"]
 
@@ -460,6 +459,9 @@ class QuadrotorEnvMulti(gym.Env):
         self.all_collisions = {'drone': np.sum(drone_col_matrix, axis=1), 'ground': ground_collisions,
                                'obstacle': np.sum(obst_quad_col_matrix, axis=1)}
 
+        # Collisions with wall and ceiling
+        apply_room_collision = self.simulate_collision_with_room()
+
         # Applying random forces for all collisions between drones and obstacles
         if self.apply_collision_force:
             for val in self.curr_drone_collisions:
@@ -487,6 +489,12 @@ class QuadrotorEnvMulti(gym.Env):
 
         # run the scenario passed to self.quads_mode
         infos, rewards = self.scenario.step(infos=infos, rewards=rewards, pos=self.pos)
+
+        if apply_room_collision:
+            obs = [e.state_vector(e) for e in self.envs]
+
+        # Concatenate observations of neighbor drones
+        obs = self.add_neighborhood_obs(obs)
 
         # For obstacles
         quads_vel = np.array([e.dynamics.vel for e in self.envs])
@@ -563,6 +571,25 @@ class QuadrotorEnvMulti(gym.Env):
             dones = [True] * len(dones)  # terminate the episode for all "sub-envs"
 
         return obs, rewards, dones, infos
+
+    def simulate_collision_with_room(self):
+        apply_room_collision_flag = False
+        wall_collisions = np.array([env.dynamics.crashed_wall for env in self.envs])
+        ceiling_collisions = np.array([env.dynamics.crashed_ceiling for env in self.envs])
+
+        wall_crash_list = np.where(wall_collisions >= 1)[0]
+        if len(wall_crash_list) > 0:
+            apply_room_collision_flag = True
+            for val in wall_crash_list:
+                perform_collision_with_wall(drone_dyn=self.envs[val].dynamics, room_box=self.envs[0].room_box)
+
+        ceiling_crash_list = np.where(ceiling_collisions >= 1)[0]
+        if len(ceiling_crash_list) > 0:
+            apply_room_collision_flag = True
+            for val in ceiling_crash_list:
+                perform_collision_with_ceiling(drone_dyn=self.envs[val].dynamics)
+
+        return apply_room_collision_flag
 
     def render(self, mode='human', verbose=False):
         models = tuple(e.dynamics.model for e in self.envs)
