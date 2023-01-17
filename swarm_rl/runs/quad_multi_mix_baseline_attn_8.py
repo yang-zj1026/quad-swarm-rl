@@ -7,6 +7,7 @@ from swarm_rl.utils import timeStamped, generate_seeds
 _params = ParamGrid([
     ('quads_neighbor_encoder_type', ['attention']),
     ('seed', generate_seeds(4)),
+    ('num_workers', [12]),
 ])
 
 _experiment = Experiment(
