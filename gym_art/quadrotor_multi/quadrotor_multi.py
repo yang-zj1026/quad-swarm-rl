@@ -459,7 +459,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.all_collisions = {'drone': np.sum(drone_col_matrix, axis=1), 'ground': ground_collisions,
                                'obstacle': np.sum(obst_quad_col_matrix, axis=1)}
 
-        # TODO: Collisions with wall
+        # Collisions with wall and ceiling
         apply_room_collision = self.simulate_collision_with_room()
 
         # Applying random forces for all collisions between drones and obstacles

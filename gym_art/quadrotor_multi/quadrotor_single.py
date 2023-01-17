@@ -132,7 +132,6 @@ class QuadrotorDynamics:
 
         self.on_floor = False
         # self.hit_floor = False
-        # self.flipped = False
         self.mu = 0.5
 
         ## Collision with room
@@ -296,14 +295,13 @@ class QuadrotorDynamics:
         # assert np.all(thrust_cmds >= 0)
         # assert np.all(thrust_cmds <= 1)
 
-        # When quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
+        ## When quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
         if self.pos[2] <= self.arm:
             if not self.on_floor:
                 vel, omega = npa(0, 0, 0), npa(0, 0, 0)
                 theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
                 c, s = np.cos(theta), np.sin(theta)
                 if self.rot[2, 2] < 0:
-                    # self.flipped = True
                     rot = randyaw()
                     while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
                         rot = randyaw()
@@ -315,14 +313,8 @@ class QuadrotorDynamics:
                 self.reset()
                 self.on_floor = True
 
-            # if not self.hit_floor:
-            #     self.hit_floor = True
-            # else:
-            #     self.pos[2] = self.arm
-
         thrust_cmds = np.clip(thrust_cmds, a_min=0., a_max=1.)
-        # if self.hit_floor:
-        #     thrust_cmds = npa(1, 1, 1, 1)
+
         ###################################
         ## Filtering the thruster and adding noise
         # I use the multiplier 4, since 4*T ~ time for a step response to finish, where
@@ -465,9 +457,6 @@ class QuadrotorDynamics:
 
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos_before_clip = self.pos.copy()
-
-        # self.crashed_wall = not np.array_equal(
-        #     self.pos[:2], np.clip(self.pos[:2], a_min=self.room_box[0][:2], a_max=self.room_box[1][:2]))
 
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
 
