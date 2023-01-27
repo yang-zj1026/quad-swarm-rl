@@ -167,6 +167,8 @@ class OctTree:
         state = np.array(state)
         return state
 
-oct = OctTree(resolution=0.05)
-oct.generate_obstacles(num_obstacles=8)
-print(oct.pos_arr)
+
+if __name__ == "__main__":
+    oct = OctTree(resolution=0.05)
+    oct.generate_obstacles(num_obstacles=8)
+    print(oct.pos_arr)
