@@ -76,7 +76,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # reward shaping
         self.rew_coeff = dict(
-            pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., rot=0., attitude=0., spin=0.1, vel=0.,
+            pos=1., effort=0.05, action_change=0., crash_floor=1., orient=1., yaw=0., rot=0., attitude=0., spin=0.1, vel=0.,
             quadcol_bin=0., quadcol_bin_smooth_max=0., quadcol_bin_obst=0., quadcol_bin_obst_smooth_max=0.,
             quadsettle=0., quadcol_coeff=1., quadcol_obst_coeff=1.
         )
@@ -427,7 +427,7 @@ class QuadrotorEnvMulti(gym.Env):
             rew_obst_quad_proximity = np.zeros(self.num_agents)
 
         if self.use_replay_buffer and not self.activate_replay_buffer:
-            self.crashes_last_episode += infos[0]["rewards"]["rew_crash"]
+            self.crashes_last_episode += infos[0]["rewards"]["rew_crash_floor"] / self.rew_coeff["crash_floor"]
 
         # Calculating collisions between drones
         drone_col_matrix, self.curr_drone_collisions, distance_matrix = calculate_collision_matrix(self.pos,
