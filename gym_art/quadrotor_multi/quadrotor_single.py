@@ -734,15 +734,16 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
     ##################################################
     # loss crash
     cost_crash_raw = float(crashed_floor or crashed_wall or crashed_ceiling)
-    cost_crash = rew_coeff["crash"] * cost_crash_raw
     cost_crash_floor_raw = float(crashed_floor)
     cost_crash_wall_raw = float(crashed_wall)
     cost_crash_ceiling_raw = float(crashed_ceiling)
 
+    cost_crash_floor = rew_coeff["crash_floor"] * cost_crash_floor_raw
+
     reward = -dt * np.sum([
         cost_pos,
         cost_effort,
-        cost_crash,
+        cost_crash_floor,
         cost_orient,
         cost_yaw,
         cost_rotation,
@@ -758,7 +759,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
         "rew_main": -cost_pos,
         'rew_pos': -cost_pos,
         'rew_action': -cost_effort,
-        'rew_crash': -cost_crash,
+        'rew_crash_floor': -cost_crash_floor_raw,
         "rew_orient": -cost_orient,
         "rew_yaw": -cost_yaw,
         "rew_rot": -cost_rotation,

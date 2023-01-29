@@ -13,4 +13,4 @@ python -m swarm_rl.train \
 --replay_buffer_sample_prob=0.75 --anneal_collision_steps=50000000 --anneal_collision_sim_steps=400000000 --save_milestones_sec=1800 \
 --normalize_input=False --normalize_returns=False --reward_clip=10 \
 --with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_group=anneal_simulation --wandb_user=multi-drones \
---experiment=anneal_simulation_new
+--experiment=coeff_spin_0.2
