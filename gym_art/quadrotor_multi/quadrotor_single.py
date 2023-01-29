@@ -781,9 +781,9 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
         "rewraw_spin": -cost_spin_raw,
         "rewraw_act_change": -cost_act_change_raw,
         "rewraw_vel": -cost_vel_raw,
-        "rewraw_crash_floor_raw": -cost_crash_floor_raw,
-        "rewraw_crash_wall_raw": -cost_crash_wall_raw,
-        "rewraw_crash_ceiling_raw": -cost_crash_ceiling_raw,
+        "rewraw_crash_floor": -cost_crash_floor_raw,
+        "rewraw_crash_wall": -cost_crash_wall_raw,
+        "rewraw_crash_ceiling": -cost_crash_ceiling_raw,
     }
 
     # report rewards in the same format as they are added to the actual agent's reward (easier to debug this way)
