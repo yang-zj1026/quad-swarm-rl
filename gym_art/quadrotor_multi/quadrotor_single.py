@@ -1753,14 +1753,21 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     flipped = False
     if pos[2] <= arm:
         if not on_floor:
-            vel, omega = np.zeros(3), np.zeros(3)
-            # theta = np.arctan2(rot[1][0], rot[0][0])
-            # # if np.cos(theta) * rot[0][0] < 0:
-            # #     theta += np.pi
-            # c, s = np.cos(theta), np.sin(theta)
-            # # rot = np.eye(3)
-            # # rot[:2, :2] = self.rot[:2, :2]
-            # rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            # vel, omega = np.zeros(3), np.zeros(3)
+            # if rot[2, 2] < 0:
+            #     theta = np.random.uniform(-np.pi, np.pi)
+            #     c, s = np.cos(theta), np.sin(theta)
+            #     rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            #     flipped = True
+            # else:
+            #     theta = np.arctan2(rot[1][0], rot[0][0])
+            #     # if np.cos(theta) * rot[0][0] < 0:
+            #     #     theta += np.pi
+            #     c, s = np.cos(theta), np.sin(theta)
+            #     # rot = np.eye(3)
+            #     # rot[:2, :2] = self.rot[:2, :2]
+            #     rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            vel = np.zeros(3)
             pos = np.array((pos[0], pos[1], arm))
             # self.set_state(pos, vel, rot, omega)
             thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
