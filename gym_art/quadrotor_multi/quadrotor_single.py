@@ -139,6 +139,7 @@ class QuadrotorDynamics:
         ## Collision with room
         self.crashed_wall = False
         self.crashed_ceiling = False
+        self.flipped = False
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
@@ -304,7 +305,7 @@ class QuadrotorDynamics:
                 theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
                 c, s = np.cos(theta), np.sin(theta)
                 if self.rot[2, 2] < 0:
-                    # self.flipped = True
+                    self.flipped = True
                     rot = randyaw()
                     while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
                         rot = randyaw()
@@ -506,7 +507,7 @@ class QuadrotorDynamics:
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         self.motor_tau_up, self.motor_tau_down, self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, \
         self.torque, self.rot, self.since_last_svd, self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, \
-        self.vel, self.on_floor = \
+        self.vel, self.on_floor, self.flipped = \
             calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, EPS, self.motor_damp_time_up,
                                                                   self.motor_damp_time_down,
                                                                   self.thrust_cmds_damp, self.thrust_rot_damp,
@@ -728,6 +729,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
     cost_crash_wall_raw = float(crashed_wall)
     cost_crash_ceiling_raw = float(crashed_ceiling)
 
+    ##################################################
+    # loss flip
+    cost_flipped = 5.0 * flipped
+
     reward = -dt * np.sum([
         cost_pos,
         cost_effort,
@@ -739,7 +744,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
         cost_spin,
         cost_act_change,
         cost_vel,
-        # cost_flipped
+        cost_flipped,
         # cost_on_floor
     ])
 
@@ -755,7 +760,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
         "rew_spin": -cost_spin,
         "rew_act_change": -cost_act_change,
         "rew_vel": -cost_vel,
-        # "rew_flipped": -cost_flipped,
+        "rew_flipped": -cost_flipped,
 
 
         "rewraw_main": -cost_pos_raw,
@@ -1132,10 +1137,10 @@ class QuadrotorSingle:
         reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed_floor,
                                                    self.crashed_wall, self.crashed_ceiling, self.time_remain,
                                                    rew_coeff=self.rew_coeff, action_prev=self.actions[1],
-                                                   on_floor=self.dynamics.on_floor
+                                                   on_floor=self.dynamics.on_floor, flipped=self.dynamics.flipped
                                                    )
-        # if self.dynamics.flipped:
-        #     self.dynamics.flipped = False
+        if self.dynamics.flipped:
+            self.dynamics.flipped = False
 
         self.tick += 1
         done = self.tick > self.ep_len  # or self.crashed
@@ -1717,6 +1722,7 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                                                           damp_omega_quadratic, omega_max, pos, vel, arm, on_floor):
     # ToDo: add friction here
     # Once the drone hit the floor, change the normal to (0, 0, 1), and set linear velocity, angular velocity to 0.
+    flipped = False
     if pos[2] <= arm:
         if not on_floor:
             vel, omega = np.zeros(3), np.zeros(3)
@@ -1724,7 +1730,7 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                 theta = np.random.uniform(-np.pi, np.pi)
                 c, s = np.cos(theta), np.sin(theta)
                 rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
-                # flipped = True
+                flipped = True
             else:
                 theta = np.arctan2(rot[1][0], rot[0][0])
                 c, s = np.cos(theta), np.sin(theta)
@@ -1798,7 +1804,7 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     pos = pos + dt * vel
 
     return motor_tau_up, motor_tau_down, thrust_rot_damp, thrust_cmds_damp, torques, \
-           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor
+           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor, flipped
 
 
 @njit
