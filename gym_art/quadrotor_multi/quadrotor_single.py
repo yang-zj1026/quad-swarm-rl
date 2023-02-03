@@ -20,11 +20,8 @@ References:
 import argparse
 import logging
 import sys
-import time
 
 import gym_art.quadrotor_multi.get_state as get_state
-
-# MY LIBS
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
 
 # MATH
@@ -131,9 +128,13 @@ class QuadrotorDynamics:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
 
         self.on_floor = False
-        self.hit_floor = False
-        self.flipped = False
-        self.mu = 0.5
+        # self.hit_floor = False
+        # self.flipped = False
+        self.mu = 0.6
+
+        ## Collision with room
+        self.crashed_wall = False
+        self.crashed_ceiling = False
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
@@ -292,35 +293,18 @@ class QuadrotorDynamics:
         # assert np.all(thrust_cmds >= 0)
         # assert np.all(thrust_cmds <= 1)
 
-        # TODO: when quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
+        # When quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
         if self.pos[2] <= self.arm:
             if not self.on_floor:
                 vel, omega = npa(0, 0, 0), npa(0, 0, 0)
-                # theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
-                # # if np.cos(theta) * self.rot[0][0] < 0:
-                # #     theta += np.pi
-                # c, s = np.cos(theta), np.sin(theta)
-                # if self.rot[2, 2] < 0:
-                #     self.flipped = True
-                #     rot = randyaw()
-                #     while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
-                #         rot = randyaw()
-                # else:
-                #     rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
-                # vel = npa(0, 0, 0)
+
                 pos = npa(self.pos[0], self.pos[1], self.arm)
-                self.set_state(pos, vel, self.rot, self.omega)
+                self.set_state(pos, vel, self.rot, omega)
                 self.reset()
                 self.on_floor = True
 
-            if not self.hit_floor:
-                self.hit_floor = True
-            # else:
-            #     self.pos[2] = self.arm
-
         thrust_cmds = np.clip(thrust_cmds, a_min=0., a_max=1.)
-        # if self.hit_floor:
-        #     thrust_cmds = npa(1, 1, 1, 1)
+
         ###################################
         ## Filtering the thruster and adding noise
         # I use the multiplier 4, since 4*T ~ time for a step response to finish, where
@@ -464,8 +448,10 @@ class QuadrotorDynamics:
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos_before_clip = self.pos.copy()
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
-        # if self.on_floor:
-        #     self.pos[2] = self.arm
+
+        self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
+        self.crashed_ceiling = self.pos_before_clip[2] > self.pos[2]
+
         # self.vel[np.equal(self.pos, self.pos_before_clip)] = 0.
 
         ## Computing accelerations
@@ -478,8 +464,11 @@ class QuadrotorDynamics:
                 if np.abs(f[i]) > np.abs(force[i]):
                     f[i] = force[i]
             force -= f
+
         acc = [0, 0, -GRAV] + (1.0 / self.mass) * force
         # acc[mask] = 0. #If we leave the room - stop accelerating
+        if self.on_floor:
+            acc[2] = np.maximum(acc[2], 0)
         self.acc = acc
 
         ## Computing velocities
@@ -508,7 +497,7 @@ class QuadrotorDynamics:
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         self.motor_tau_up, self.motor_tau_down, self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, \
         self.torque, self.rot, self.since_last_svd, self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, \
-        self.vel, self.on_floor, self.flipped = \
+        self.vel, self.on_floor = \
             calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, EPS, self.motor_damp_time_up,
                                                                   self.motor_damp_time_down,
                                                                   self.thrust_cmds_damp, self.thrust_rot_damp,
@@ -520,8 +509,13 @@ class QuadrotorDynamics:
                                                                   self.damp_omega_quadratic, self.omega_max, self.pos,
                                                                   self.vel, self.arm, self.on_floor)
 
+        self.pos_before_clip = self.pos.copy()
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
+
+        # Detect collision with walls
+        self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
+        self.crashed_ceiling = self.pos_before_clip[2] > self.pos[2]
 
         # Set constant variables up for numba
         grav_cnst_arr = np.float64([0, 0, -GRAV])
@@ -668,9 +662,8 @@ class QuadrotorDynamics:
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, rew_coeff, action_prev,
-                            quads_settle=False, quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
-                            on_floor=False, flipped=False):
+def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_wall, crashed_ceiling,
+                            time_remain, rew_coeff, action_prev, on_floor=False):
     ##################################################
     ## log to create a sharp peak at the goal
     dist = np.linalg.norm(goal - dynamics.pos)
@@ -679,10 +672,6 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
 
     # sphere of equal reward if drones are close to the goal position
     vel_coeff = rew_coeff["vel"]
-    if dist <= quads_settle_range_meters and quads_settle:
-        cost_pos = 0
-        vel_coeff = quads_vel_reward_out_range  # penalize movement once drones are close to the goal
-
     ##################################################
     # penalize amount of control effort
     cost_effort_raw = np.linalg.norm(action)
@@ -699,16 +688,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
 
     ##################################################
     ## Loss orientation
-    if on_floor:
-        cost_orient_raw = 0.
-        # cost_orient = -1.
-    else:
-        cost_orient_raw = -dynamics.rot[2, 2]
-
-    if flipped:
-        cost_flipped = 10.
-    else:
-        cost_flipped = 0.
+    cost_orient_raw = -dynamics.rot[2, 2]
 
     cost_orient = rew_coeff["orient"] * cost_orient_raw
 
@@ -732,8 +712,11 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
 
     ##################################################
     # loss crash
-    cost_crash_raw = float(crashed)
+    cost_crash_raw = float(crashed_floor or crashed_wall or crashed_ceiling)
     cost_crash = rew_coeff["crash"] * cost_crash_raw
+    cost_crash_floor_raw = float(crashed_floor)
+    cost_crash_wall_raw = float(crashed_wall)
+    cost_crash_ceiling_raw = float(crashed_ceiling)
 
     reward = -dt * np.sum([
         cost_pos,
@@ -746,7 +729,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         cost_spin,
         cost_act_change,
         cost_vel,
-        cost_flipped
+        # cost_flipped
         # cost_on_floor
     ])
 
@@ -762,8 +745,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         "rew_spin": -cost_spin,
         "rew_act_change": -cost_act_change,
         "rew_vel": -cost_vel,
-        "rew_flipped": -cost_flipped,
-
+        # "rew_flipped": -cost_flipped,
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
@@ -776,7 +758,9 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed, time_remain, re
         "rewraw_spin": -cost_spin_raw,
         "rewraw_act_change": -cost_act_change_raw,
         "rewraw_vel": -cost_vel_raw,
-        # "rew_raw_on_floor": -cost_on_floor_raw,
+        "rewraw_crash_floor_raw": -cost_crash_floor_raw,
+        "rewraw_crash_wall_raw": -cost_crash_wall_raw,
+        "rewraw_crash_ceiling_raw": -cost_crash_ceiling_raw,
     }
 
     # report rewards in the same format as they are added to the actual agent's reward (easier to debug this way)
@@ -807,13 +791,10 @@ class QuadrotorSingle:
                  dynamics_randomize_every=None, dyn_sampler_1=None, dyn_sampler_2=None,
                  raw_control=True, raw_control_zero_middle=True, dim_mode='3D', tf_control=False, sim_freq=200.,
                  sim_steps=2,
-                 obs_repr="xyz_vxyz_R_omega", ep_time=7, obstacles_num=0, room_length=10, room_width=10, room_height=10,
-                 init_random_state=False,
+                 obs_repr="xyz_vxyz_R_omega", ep_time=7, room_length=10, room_width=10, room_height=10, init_random_state=False,
                  rew_coeff=None, sense_noise=None, verbose=False, gravity=GRAV,
-                 t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
-                 swarm_obs='none', num_agents=1, quads_settle=False,
-                 quads_settle_range_meters=1.0, quads_vel_reward_out_range=0.8,
-                 view_mode='local', obstacle_mode='no_obstacles', obstacle_num=0, num_use_neighbor_obs=0):
+                 t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False, swarm_obs='none', num_agents=1,
+                 view_mode='local', num_use_neighbor_obs=0, use_obstacles=False):
         np.seterr(under='ignore')
         """
         Args:
@@ -836,7 +817,6 @@ class QuadrotorSingle:
             sim_steps: [int] how many simulation steps for each control step
             obs_repr: [str] options: xyz_vxyz_rot_omega, xyz_vxyz_quat_omega
             ep_time: [float] episode time in simulated seconds. This parameter is used to compute env max time length in steps.
-            obstacles_num: [int] number of obstacle in the env
             room_size: [int] env room size. Not the same as the initialization box to allow shorter episodes
             init_random_state: [bool] use random state initialization or horizontal initialization with 0 velocities
             rew_coeff: [dict] weights for different reward components (see compute_weighted_reward() function)
@@ -856,7 +836,6 @@ class QuadrotorSingle:
         self.tf_control = tf_control
         self.dynamics_randomize_every = dynamics_randomize_every
         self.verbose = verbose
-        self.obstacles_num = obstacles_num
         self.raw_control = raw_control
         self.use_numba = use_numba
         self.update_sense_noise(sense_noise=sense_noise)
@@ -864,9 +843,7 @@ class QuadrotorSingle:
         self.swarm_obs = swarm_obs
         self.num_use_neighbor_obs = num_use_neighbor_obs
         self.num_agents = num_agents
-        self.quads_settle = quads_settle
-        self.quads_settle_range_meters = quads_settle_range_meters
-        self.quads_vel_reward_out_range = quads_vel_reward_out_range
+        self.use_obstacles = use_obstacles
         ## t2w and t2t ranges
         self.t2w_std = t2w_std
         self.t2w_min = 1.5
@@ -903,10 +880,6 @@ class QuadrotorSingle:
 
         ## View / Camera mode
         self.view_mode = view_mode
-
-        ## Obstacle Mode
-        self.obstacle_mode = obstacle_mode
-        self.obstacle_num = obstacle_num
 
         ###############################################################################
         ## DYNAMICS (and randomization)
@@ -981,10 +954,6 @@ class QuadrotorSingle:
         #########################################
         self._seed()
 
-    def reset_ep_len(self, ep_time):
-        self.ep_time = ep_time
-        self.ep_len = int(self.ep_time / (self.dt * self.sim_steps))
-
     def save_dyn_params(self, filename):
         import yaml
         with open(filename, 'w') as yaml_file:
@@ -1034,11 +1003,6 @@ class QuadrotorSingle:
 
         ################################################################################
         ## SCENE
-        if self.obstacles_num > 0:
-            # TODO: Fix unresolved reference error here???
-            self.obstacles = _random_obstacles(None, obstacles_num, self.room_size, self.dynamics.arm)
-        else:
-            self.obstacles = None
 
         ################################################################################
         ## CONTROL
@@ -1093,6 +1057,7 @@ class QuadrotorSingle:
             "nbr_dist": [np.zeros(1), room_max_dist],
             "nbr_goal_dist": [np.zeros(1), room_max_dist],
             "wall": [np.zeros(6), 5.0 * np.ones(6)],
+            "octmap": [-10 * np.ones(9), 10 * np.ones(9)],
         }
         self.obs_comp_names = list(self.obs_space_low_high.keys())
         self.obs_comp_sizes = [self.obs_space_low_high[name][1].size for name in self.obs_comp_names]
@@ -1103,10 +1068,10 @@ class QuadrotorSingle:
         elif self.swarm_obs == 'pos_vel_goals' and self.num_agents > 1:
             obs_comps = obs_comps + (['rxyz'] + ['rvxyz'] + ['goal']) * self.num_use_neighbor_obs
         elif self.swarm_obs == 'pos_vel_goals_ndist_gdist' and self.num_agents > 1:
-            obs_comps = obs_comps + (
-                        ['rxyz'] + ['rvxyz'] + ['goal'] + ['nbr_dist'] + ['nbr_goal_dist']) * self.num_use_neighbor_obs
-        if self.obstacle_mode != 'no_obstacles' and self.obstacle_num > 0:
-            obs_comps = obs_comps + (['roxyz'] + ['rovxyz'] + ['osize'] + ['otype']) * self.obstacle_num
+            obs_comps = obs_comps + (['rxyz'] + ['rvxyz'] + ['goal'] + ['nbr_dist'] + ['nbr_goal_dist']) * self.num_use_neighbor_obs
+
+        if self.use_obstacles:
+            obs_comps = obs_comps + ["octmap"]
 
         print("Observation components:", obs_comps)
         obs_low, obs_high = [], []
@@ -1147,28 +1112,17 @@ class QuadrotorSingle:
         # self.oracle.step(self.dynamics, self.goal, self.dt)
         # self.scene.update_state(self.dynamics, self.goal)
 
-        if self.obstacles is not None:
-            self.crashed = self.obstacles.detect_collision(self.dynamics)
-        else:
-            self.crashed = self.dynamics.pos[2] <= self.dynamics.arm
-
-        # TODO: add crashed_wall and crashed_ceiling
-        self.crashed = self.crashed or not np.array_equal(self.dynamics.pos,
-                                                          np.clip(self.dynamics.pos,
-                                                                  a_min=self.room_box[0],
-                                                                  a_max=self.room_box[1]))
-
+        self.crashed_floor = self.dynamics.pos[2] <= self.dynamics.arm
+        self.crashed_wall = self.dynamics.crashed_wall
+        self.crashed_ceiling = self.dynamics.crashed_ceiling
         self.time_remain = self.ep_len - self.tick
-        reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed,
-                                                   self.time_remain,
+        reward, rew_info = compute_reward_weighted(self.dynamics, self.goal, action, self.dt, self.crashed_floor,
+                                                   self.crashed_wall, self.crashed_ceiling, self.time_remain,
                                                    rew_coeff=self.rew_coeff, action_prev=self.actions[1],
-                                                   quads_settle=self.quads_settle,
-                                                   quads_settle_range_meters=self.quads_settle_range_meters,
-                                                   quads_vel_reward_out_range=self.quads_vel_reward_out_range,
-                                                   on_floor=self.dynamics.on_floor, flipped=self.dynamics.flipped
+                                                   on_floor=self.dynamics.on_floor
                                                    )
-        if self.dynamics.flipped:
-            self.dynamics.flipped = False
+        # if self.dynamics.flipped:
+        #     self.dynamics.flipped = False
 
         self.tick += 1
         done = self.tick > self.ep_len  # or self.crashed
@@ -1748,9 +1702,8 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                                                           prop_crossproducts, prop_ccw, torque_max, rot, omega,
                                                           eye, since_last_svd, since_last_svd_limit, inertia,
                                                           damp_omega_quadratic, omega_max, pos, vel, arm, on_floor):
-    # ToDo: add friction here
+
     # Once the drone hit the floor, change the normal to (0, 0, 1), and set linear velocity, angular velocity to 0.
-    flipped = False
     if pos[2] <= arm:
         if not on_floor:
             # vel, omega = np.zeros(3), np.zeros(3)
@@ -1838,7 +1791,7 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     pos = pos + dt * vel
 
     return motor_tau_up, motor_tau_down, thrust_rot_damp, thrust_cmds_damp, torques, \
-           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor, flipped
+           torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor
 
 
 @njit
@@ -1854,6 +1807,8 @@ def compute_velocity_and_acceleration(vel, grav_cnst_arr, mass, rot, sum_thr_dra
                 f[i] = force[i]
         force -= f
     acc = grav_cnst_arr + ((1.0 / mass) * force)
+    if on_floor:
+        acc[2] = np.maximum(acc[2], 0)
 
     # Computing velocities
     vel = (1.0 - vel_damp) * vel + dt * acc

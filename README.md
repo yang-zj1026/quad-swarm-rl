@@ -35,12 +35,20 @@ conda create -n swarm-rl python=3.8
 conda activate swarm-rl
 ```
 
+<<<<<<< HEAD
 Then clone Sample Factory and install version 2.0:
+=======
+Then clone Sample Factory and install version 2.0.0:
+>>>>>>> obstacle-removal
 ```
 git clone https://github.com/alex-petrenko/sample-factory.git
 cd sample-factory
 git checkout sf2
+<<<<<<< HEAD
 pip install -e . && cd ..
+=======
+pip install -e .
+>>>>>>> obstacle-removal
 ```
 
 Clone and install this repo as an editable Pip package:
@@ -118,7 +126,11 @@ Here is a total list of wandb settings:
 To test the trained model, run the following command:
 
 ```
+<<<<<<< HEAD
 python -m swarm_rl.enjoy --algo=APPO --env=quadrotor_multi --replay_buffer_sample_prob=0 --quads_use_numba=False --train_dir=PATH_TO_TRAIN_DIR --experiment=EXPERIMENT_NAME
+=======
+python -m swarm_rl.enjoy --algo=APPO --env=quadrotor_multi --replay_buffer_sample_prob=0 --quads_use_numba=False --train_dir=PATH_TO_PROJECT/train_dir/RUN_NAME --experiment=EXPERIMENT_NAME
+>>>>>>> obstacle-removal
 ```
 EXPERIMENT_NAME and PATH_TO_TRAIN_DIR can be found in the cfg.json file of your trained model
 
