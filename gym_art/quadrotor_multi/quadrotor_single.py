@@ -668,7 +668,7 @@ class QuadrotorDynamics:
 # reasonable reward function for hovering at a goal and not flying too high
 def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_wall, crashed_ceiling,
                             time_remain, rew_coeff, action_prev,
-                            on_floor=False, ground_collision=False):
+                            on_floor=False):
     ##################################################
     ## log to create a sharp peak at the goal
     dist = np.linalg.norm(goal - dynamics.pos)
@@ -725,7 +725,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
 
     ##################################################
     # Loss crash for staying on the floor
-    cost_crash_raw = float(crashed_floor)
+    cost_crash_raw = float(on_floor)
     cost_crash = rew_coeff["crash"] * cost_crash_raw
 
     # Loss for hitting the room
