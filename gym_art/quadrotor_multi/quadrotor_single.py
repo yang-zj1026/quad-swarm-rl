@@ -294,26 +294,6 @@ class QuadrotorDynamics:
         # assert np.all(thrust_cmds >= 0)
         # assert np.all(thrust_cmds <= 1)
 
-        # When quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
-        self.crashed_floor = False
-        if self.pos[2] <= self.arm:
-            if not self.on_floor:
-                vel, omega = npa(0, 0, 0), npa(0, 0, 0)
-                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
-                c, s = np.cos(theta), np.sin(theta)
-                if self.rot[2, 2] < 0:
-                    rot = randyaw()
-                    while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
-                        rot = randyaw()
-                else:
-                    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
-
-                pos = npa(self.pos[0], self.pos[1], self.arm)
-                self.set_state(pos, vel, rot, omega)
-                self.reset()
-                self.on_floor = True
-                self.crashed_floor = True
-
         thrust_cmds = np.clip(thrust_cmds, a_min=0., a_max=1.)
 
         ###################################
@@ -459,6 +439,26 @@ class QuadrotorDynamics:
         # Clipping if met the obstacle and nullify velocities (not sure what to do about accelerations)
         self.pos_before_clip = self.pos.copy()
         self.pos = np.clip(self.pos, a_min=self.room_box[0], a_max=self.room_box[1])
+
+        # When quadrotor hits the ground, set normal to (0, 0, 1), linear velocity and angular velocity to 0
+        self.crashed_floor = False
+        if self.pos[2] <= self.arm:
+            if not self.on_floor:
+                vel, omega = npa(0, 0, 0), npa(0, 0, 0)
+                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                c, s = np.cos(theta), np.sin(theta)
+                if self.rot[2, 2] < 0:
+                    rot = randyaw()
+                    while np.dot(rot[:, 0], to_xyhat(-self.pos)) < 0.5:
+                        rot = randyaw()
+                else:
+                    rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+
+                pos = npa(self.pos[0], self.pos[1], self.arm)
+                self.set_state(pos, vel, rot, omega)
+                self.reset()
+                self.on_floor = True
+                self.crashed_floor = True
 
         self.crashed_wall = not np.array_equal(self.pos_before_clip[:2], self.pos[:2])
         self.crashed_ceiling = self.pos_before_clip[2] > self.pos[2]
@@ -1729,24 +1729,6 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
                                                           eye, since_last_svd, since_last_svd_limit, inertia,
                                                           damp_omega_quadratic, omega_max, pos, vel, arm, on_floor):
     # ToDo: add friction here
-    # Once the drone hit the floor, change the normal to (0, 0, 1), and set linear velocity, angular velocity to 0.
-    crashed_floor = False
-    if pos[2] <= arm:
-        if not on_floor:
-            vel, omega = np.zeros(3), np.zeros(3)
-            if rot[2, 2] < 0:
-                theta = np.random.uniform(-np.pi, np.pi)
-                c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
-                # flipped = True
-            else:
-                theta = np.arctan2(rot[1][0], rot[0][0])
-                c, s = np.cos(theta), np.sin(theta)
-                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
-            pos = np.array((pos[0], pos[1], arm))
-            thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
-            on_floor = True
-            crashed_floor = True
 
     # Filtering the thruster and adding noise
     thrust_cmds = np.clip(thrust_cmds, 0., 1.)
@@ -1811,6 +1793,25 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
 
     # Computing position
     pos = pos + dt * vel
+
+    # Once the drone hit the floor, change the normal to (0, 0, 1), and set linear velocity, angular velocity to 0.
+    crashed_floor = False
+    if pos[2] <= arm:
+        if not on_floor:
+            vel, omega = np.zeros(3), np.zeros(3)
+            if rot[2, 2] < 0:
+                theta = np.random.uniform(-np.pi, np.pi)
+                c, s = np.cos(theta), np.sin(theta)
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+                # flipped = True
+            else:
+                theta = np.arctan2(rot[1][0], rot[0][0])
+                c, s = np.cos(theta), np.sin(theta)
+                rot = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+            pos = np.array((pos[0], pos[1], arm))
+            thrust_cmds_damp, thrust_rot_damp = np.zeros(4), np.zeros(4)
+            on_floor = True
+            crashed_floor = True
 
     return motor_tau_up, motor_tau_down, thrust_rot_damp, thrust_cmds_damp, torques, \
            torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force, vel, on_floor, crashed_floor
