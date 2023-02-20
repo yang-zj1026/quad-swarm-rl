@@ -44,8 +44,10 @@ def state_xyz_vxyz_R_omega_wall(self):
             dt=self.dt
         )
     # return np.concatenate([pos - self.goal[:3], vel, rot.flatten(), omega, (pos[2],)])
-    wall_box_0 = np.clip(pos - self.room_box[0], a_min=0.0, a_max=1.0)
-    wall_box_1 = np.clip(self.room_box[1] - pos, a_min=0.0, a_max=1.0)
+    # wall_box_0 = np.clip(pos - self.room_box[0], a_min=0.0, a_max=1.0)
+    # wall_box_1 = np.clip(self.room_box[1] - pos, a_min=0.0, a_max=1.0)
+    wall_box_0 = np.ones(3)
+    wall_box_1 = np.ones(3)
     return np.concatenate([pos - self.goal[:3], vel, rot.flatten(), omega, wall_box_0, wall_box_1])
 
 def state_xyz_vxyz_tx3_R_omega(self):        
