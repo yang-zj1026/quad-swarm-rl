@@ -129,6 +129,11 @@ class QuadrotorDynamics:
         else:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
 
+        self.crashed_floor = False
+        self.on_floor = False
+        self.mu = 0.4
+        self.floor_threshold = self.arm
+
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
         """
@@ -460,6 +465,8 @@ class QuadrotorDynamics:
         # Set constant variables up for numba
         grav_cnst_arr = np.float64([0, 0, -GRAV])
         sum_thr_drag = thrust + rotor_drag_force
+
+        self.floor_interaction(sum_thr_drag=sum_thr_drag)
         grav_arr = np.float64([0, 0, self.gravity])
         self.vel, self.acc, self.accelerometer = compute_velocity_and_acceleration(self.vel, grav_cnst_arr, self.mass, self.rot,
                                                                          sum_thr_drag, self.vel_damp, dt, self.rot.T,
@@ -566,6 +573,62 @@ class QuadrotorDynamics:
         low = np.zeros(4)
         high = np.ones(4)
         return spaces.Box(low, high, dtype=np.float32)
+
+    def floor_interaction(self, sum_thr_drag):
+        # Change pos, omega, rot, acc
+        self.crashed_floor = False
+        if self.pos[2] <= self.floor_threshold:
+            self.pos = np.array((self.pos[0], self.pos[1], self.floor_threshold))
+            force = np.matmul(self.rot, sum_thr_drag)
+            if self.on_floor:
+                # Drone is on the floor, and on_floor flag still True
+                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                c, s = np.cos(theta), np.sin(theta)
+                self.rot = np.array(((c, -s, 0.), (s, c, 0.), (0., 0., 1.)))
+
+                # Add friction if drone is on the floor
+                f = self.mu * GRAV * npa(np.sign(force[0]), np.sign(force[1]), 0) * self.mass
+                # Since fiction cannot be greater than force, we need to clip it
+                for i in range(2):
+                    if np.abs(f[i]) > np.abs(force[i]):
+                        f[i] = force[i]
+                force -= f
+
+            else:
+                # Previous step, drone still in the air, but in this step, it hits the floor
+                # In previous step, self.on_floor = False, self.crashed_floor = False
+                self.on_floor = True
+                self.crashed_floor = True
+                # Set vel to [0, 0, 0]
+                self.vel, self.acc = np.zeros(3, dtype=np.float64), np.zeros(3, dtype=np.float64)
+                self.omega = np.zeros(3, dtype=np.float32)
+                # Set rot
+                theta = np.arctan2(self.rot[1][0], self.rot[0][0] + EPS)
+                c, s = np.cos(theta), np.sin(theta)
+                if self.rot[2, 2] < 0:
+                    self.rot = randyaw()
+                    while np.dot(self.rot[:, 0], to_xyhat(-self.pos)) < 0.5:
+                        self.rot = randyaw()
+                else:
+                    self.rot = np.array(((c, -s, 0.), (s, c, 0.), (0., 0., 1.)))
+
+                self.set_state(self.pos, self.vel, self.rot, self.omega)
+
+                # reset momentum / accumulation of thrust
+                self.thrust_cmds_damp = np.zeros([4])
+                self.thrust_rot_damp = np.zeros([4])
+
+            self.acc = [0., 0., -GRAV] + (1.0 / self.mass) * force
+            self.acc[2] = np.maximum(0, self.acc[2])
+        else:
+            # self.pos[2] > self.floor_threshold
+            if self.on_floor:
+                # Drone is in the air, while on_floor flag still True
+                self.on_floor = False
+
+            # Computing accelerations
+            force = np.matmul(self.rot, sum_thr_drag)
+            self.acc = [0., 0., -GRAV] + (1.0 / self.mass) * force
 
     def __deepcopy__(self, memo):
         """Certain numba-optimized instance attributes can't be naively copied."""
