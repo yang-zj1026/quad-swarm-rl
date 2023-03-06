@@ -36,7 +36,8 @@ class QuadrotorEnvMulti(gym.Env):
                  collision_falloff_radius=2.0, collision_smooth_max_penalty=10.0, use_replay_buffer=False,
                  vis_acc_arrows=False, viz_traces=25, viz_trace_nth_step=1,
                  use_obstacles=False, num_obstacles=0, obstacle_size=0.0, octree_resolution=0.05, use_downwash=False,
-                 collision_obst_falloff_radius=3.0, obst_shape="cube", obstacle_density=0.2
+                 collision_obst_falloff_radius=3.0, obst_shape="cube", obstacle_density=0.2,
+                 obstacle_area_length=6., obstacle_area_width=6., obstacle_obs_clip=1.0
                  ):
 
         super().__init__()
@@ -149,7 +150,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.octree_resolution = octree_resolution
             self.obstacles = MultiObstacles(num_obstacles=self.num_obstacles, room_dims=self.room_dims,
                                             resolution=self.octree_resolution, obstacle_size=self.obstacle_size,
-                                            obst_shape=self.obst_shape)
+                                            obst_shape=self.obst_shape, obst_obs_clip=obstacle_obs_clip)
 
         # Aux variables for scenarios
         self.scenario = create_scenario(quads_mode=quads_mode, envs=self.envs, num_agents=self.num_agents,
@@ -209,6 +210,9 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.obst_map = None
         self.obst_pos_arr = None
+        self.obstacle_area_length = obstacle_area_length
+        self.obstacle_area_width = obstacle_area_width
+        self.obstacle_obs_clip = obstacle_obs_clip
 
     def set_room_dims(self, dims):
         # dims is a (x, y, z) tuple
@@ -343,7 +347,9 @@ class QuadrotorEnvMulti(gym.Env):
     def reset(self):
         obs, rewards, dones, infos = [], [], [], []
         if self.use_obstacles:
-            self.obst_map, obst_pos_arr = self.obst_generation_given_density(density=self.obstacle_density)
+            self.obst_map, obst_pos_arr = self.obst_generation_given_density(obst_area_length=self.obstacle_area_length,
+                                                                             obst_area_width=self.obstacle_area_width,
+                                                                             density=self.obstacle_density)
             self.scenario.reset(self.obst_map)
             self.obst_pos_arr = copy.deepcopy(obst_pos_arr)
         else:

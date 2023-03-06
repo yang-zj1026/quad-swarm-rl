@@ -5,7 +5,7 @@ from gym_art.quadrotor_multi.quad_utils import QUAD_RADIUS
 
 
 @njit
-def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolution=0.1):
+def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolution=0.1, obst_obs_clip=1.0):
     # Shape of quads_sdf_obs: (quad_num, 9)
 
     sdf_map = np.array([-1., -1., -1., 0., 0., 0., 1., 1., 1.])
@@ -25,7 +25,7 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
                         min_dist = dist
 
                 g_id = g_i * 3 + g_j
-                quads_sdf_obs[i, g_id] = min(min_dist - obst_radius, 1.0)
+                quads_sdf_obs[i, g_id] = min(min_dist - obst_radius, obst_obs_clip)
 
     return quads_sdf_obs
 
