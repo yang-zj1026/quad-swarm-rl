@@ -520,9 +520,9 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size, col_
 
     vel_noise = np.zeros(3)
     for i in range(3):
-        cons_rand_val = np.random.normal(loc=0, scale=0.8, size=3)
-        tmp_vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.15, size=3)
-        if np.dot(new_vel + vel_noise, collision_norm) > 0:
+        cons_rand_val = np.random.normal(loc=0, scale=0.1, size=3)
+        tmp_vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.05, size=3)
+        if np.dot(new_vel + tmp_vel_noise, collision_norm) > 0:
             vel_noise = tmp_vel_noise
             break
 
