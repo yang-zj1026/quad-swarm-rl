@@ -208,6 +208,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.use_numba = quads_use_numba
 
         self.obst_map = None
+        self.obst_pos_arr = None
 
     def set_room_dims(self, dims):
         # dims is a (x, y, z) tuple
@@ -344,6 +345,7 @@ class QuadrotorEnvMulti(gym.Env):
         if self.use_obstacles:
             self.obst_map, obst_pos_arr = self.obst_generation_given_density(density=self.obstacle_density)
             self.scenario.reset(self.obst_map)
+            self.obst_pos_arr = copy.deepcopy(obst_pos_arr)
         else:
             self.scenario.reset()
 

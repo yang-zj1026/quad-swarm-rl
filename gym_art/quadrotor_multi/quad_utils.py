@@ -520,14 +520,14 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size, col_
 
     vel_noise = np.zeros(3)
     for i in range(3):
-        cons_rand_val = np.random.normal(loc=0, scale=0.1, size=3)
-        tmp_vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.05, size=3)
+        cons_rand_val = np.random.normal(loc=0, scale=0.8, size=3)
+        tmp_vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.15, size=3)
         if np.dot(new_vel + vel_noise, collision_norm) > 0:
             vel_noise = tmp_vel_noise
             break
 
     max_vel_magn = np.linalg.norm(drone_dyn.vel)
-    # In case drone that is inside the obstacle
+    # In case that drone that is inside the obstacle
     if np.linalg.norm(drone_dyn.pos - obstacle_pos) < obstacle_size / 2:
         drone_dyn.vel = compute_new_vel(max_vel_magn=max_vel_magn, vel=drone_dyn.vel,
                                         vel_shift=new_vel - drone_dyn.vel + vel_noise,
@@ -538,7 +538,7 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size, col_
                                         coeff=col_coeff)
 
     # Random forces for omega
-    new_omega = compute_new_omega(magn_scale=1.0)
+    new_omega = compute_new_omega(magn_scale=10.0)
     drone_dyn.omega += new_omega * col_coeff
 
 

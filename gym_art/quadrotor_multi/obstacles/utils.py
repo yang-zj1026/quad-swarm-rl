@@ -25,7 +25,7 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
                         min_dist = dist
 
                 g_id = g_i * 3 + g_j
-                quads_sdf_obs[i, g_id] = min_dist - obst_radius
+                quads_sdf_obs[i, g_id] = min(min_dist - obst_radius, 1.0)
 
     return quads_sdf_obs
 
@@ -36,9 +36,9 @@ def collision_detection(quad_poses, obst_poses, obst_radius):
     collide_threshold = QUAD_RADIUS + obst_radius
     # Get distance matrix b/w quad and obst
     quad_collisions = -1 * np.ones(quad_num)
-    for i, q_pos in enumerate(quad_poses):
-        for j, o_pos in enumerate(obst_poses):
-            dist = np.linalg.norm(q_pos - o_pos)
+    for i, quad_pos in enumerate(quad_poses):
+        for j, obst_pos in enumerate(obst_poses):
+            dist = np.linalg.norm(quad_pos - obst_pos)
             if dist <= collide_threshold:
                 quad_collisions[i] = j
                 break
