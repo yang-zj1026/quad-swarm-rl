@@ -22,7 +22,7 @@ class Scenario_o_base(QuadrotorScenario):
         #     in
         #     np.arange(0, 3, self.grid_size) for j in
         #     np.arange(self.room_dims[1] - self.grid_size, -self.grid_size, -self.grid_size)]
-        self.cell_centers = get_cell_centers(grid_size=1.)
+        self.cell_centers = None
 
     def update_formation_size(self, new_formation_size):
         pass
@@ -52,7 +52,7 @@ class Scenario_o_base(QuadrotorScenario):
 
         return infos, rewards
 
-    def reset(self, obst_map=None):
+    def reset(self, obst_map=None, cell_centers=None):
         self.start_point = self.generate_pos()
         self.end_point = self.generate_pos()
         self.duration_time = np.random.uniform(low=2.0, high=4.0)

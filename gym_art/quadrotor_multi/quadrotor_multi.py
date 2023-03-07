@@ -347,10 +347,10 @@ class QuadrotorEnvMulti(gym.Env):
     def reset(self):
         obs, rewards, dones, infos = [], [], [], []
         if self.use_obstacles:
-            self.obst_map, obst_pos_arr = self.obst_generation_given_density(obst_area_length=self.obstacle_area_length,
-                                                                             obst_area_width=self.obstacle_area_width,
-                                                                             density=self.obstacle_density)
-            self.scenario.reset(self.obst_map)
+            self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density(obst_area_length=self.obstacle_area_length,
+                                                                                           obst_area_width=self.obstacle_area_width,
+                                                                                           density=self.obstacle_density)
+            self.scenario.reset(self.obst_map, cell_centers)
             self.obst_pos_arr = copy.deepcopy(obst_pos_arr)
         else:
             self.scenario.reset()
@@ -641,7 +641,7 @@ class QuadrotorEnvMulti(gym.Env):
             obst_item.append(self.room_dims[2] / 2.)
             obst_pos_arr.append(obst_item)
 
-        return obst_map, obst_pos_arr
+        return obst_map, obst_pos_arr, cell_centers
 
     def simulate_collision_with_room(self, wall_crash_list, ceiling_crash_list):
         apply_room_collision_flag = False
