@@ -64,7 +64,8 @@ class Scenario_o_base(QuadrotorScenario):
         xy_noise = np.random.uniform(low=-0.5, high=0.5, size=2)
 
         x, y = self.free_space[idx][0], self.free_space[idx][1]
-        index = x + (6 * y)
+        length = self.obstacle_map.shape[0]
+        index = x + (length * y)
         pos_x, pos_y = self.cell_centers[index]
 
         return np.array([pos_x + xy_noise[0], pos_y + xy_noise[1], z_list_start])

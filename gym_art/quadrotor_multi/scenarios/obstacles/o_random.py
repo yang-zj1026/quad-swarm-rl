@@ -53,7 +53,7 @@ class Scenario_o_random(Scenario_o_base):
         self.start_point = np.array(self.start_point)
         self.end_point = np.array(self.end_point)
 
-        self.duration_time = np.random.uniform(low=2.0, high=4.0)
+        self.duration_time = np.random.uniform(low=4.0, high=6.0)
         self.update_formation_and_relate_param()
 
         self.formation_center = np.array((0., 0., 2.))
