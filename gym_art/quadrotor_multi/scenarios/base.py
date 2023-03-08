@@ -145,7 +145,7 @@ class QuadrotorScenario:
         self.update_formation_and_relate_param()
 
         # Reset formation center
-        self.formation_center = np.array([0.0, 0.0, 0.2])
+        self.formation_center = np.array([0.0, 0.0, 2.0])
 
         # Regenerate goals, we don't have to assign goals to the envs,
         # the reset function in quadrotor_multi.py would do that
