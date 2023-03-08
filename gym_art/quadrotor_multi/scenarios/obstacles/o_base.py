@@ -60,8 +60,8 @@ class Scenario_o_base(QuadrotorScenario):
 
     def generate_pos_obst_map(self):
         idx = np.random.choice(a=len(self.free_space), replace=True)
-        z_list_start = np.random.uniform(low=0.5, high=3.0)
-        xy_noise = np.random.uniform(low=-0.5, high=0.5, size=2)
+        z_list_start = np.random.uniform(low=1.0, high=3.0)
+        xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
 
         x, y = self.free_space[idx][0], self.free_space[idx][1]
         length = self.obstacle_map.shape[0]

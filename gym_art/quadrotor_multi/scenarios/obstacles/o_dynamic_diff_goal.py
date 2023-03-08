@@ -37,7 +37,7 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
 
     def reset(self, obst_map=None, cell_centers=None):
         # Update duration time
-        duration_time = np.random.uniform(low=4.0, high=6.0)
+        duration_time = np.random.uniform(low=6.0, high=8.0)
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
 
         self.obstacle_map = obst_map
@@ -64,7 +64,7 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
         idx = np.random.choice(a=len(self.free_space), replace=True)
         x, y = self.free_space[idx][0], self.free_space[idx][1]
 
-        z_list_start = np.random.uniform(low=1.5, high=3.0)
+        z_list_start = np.random.uniform(low=1.0, high=3.0)
         xy_noise = np.random.uniform(low=-0.5, high=0.5, size=2)
 
         length = self.obstacle_map.shape[0]
