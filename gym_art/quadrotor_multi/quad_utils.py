@@ -538,7 +538,7 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size, col_
                                         coeff=col_coeff)
 
     # Random forces for omega
-    new_omega = compute_new_omega(magn_scale=1.0)
+    new_omega = compute_new_omega(magn_scale=5.0)
     drone_dyn.omega += new_omega * col_coeff
 
 

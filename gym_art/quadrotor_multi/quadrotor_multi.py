@@ -347,9 +347,10 @@ class QuadrotorEnvMulti(gym.Env):
     def reset(self):
         obs, rewards, dones, infos = [], [], [], []
         if self.use_obstacles:
-            self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density(obst_area_length=self.obstacle_area_length,
-                                                                                           obst_area_width=self.obstacle_area_width,
-                                                                                           density=self.obstacle_density)
+            self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density(
+                obst_area_length=self.obstacle_area_length,
+                obst_area_width=self.obstacle_area_width,
+                density=self.obstacle_density)
             self.scenario.reset(self.obst_map, cell_centers)
             self.obst_pos_arr = copy.deepcopy(obst_pos_arr)
         else:
@@ -526,8 +527,10 @@ class QuadrotorEnvMulti(gym.Env):
             for val in curr_drone_collisions:
                 # perform_collision_between_drones(self.envs[val[0]].dynamics, self.envs[val[1]].dynamics)
                 dyn1, dyn2 = self.envs[val[0]].dynamics, self.envs[val[1]].dynamics
-                dyn1.vel, dyn1.omega, dyn2.vel, dyn2.omega = perform_collision_between_drones_numba(dyn1.pos, dyn1.vel, dyn1.omega,
-                                                                                                    dyn2.pos, dyn2.vel, dyn2.omega)
+                dyn1.vel, dyn1.omega, dyn2.vel, dyn2.omega = perform_collision_between_drones_numba(dyn1.pos, dyn1.vel,
+                                                                                                    dyn1.omega,
+                                                                                                    dyn2.pos, dyn2.vel,
+                                                                                                    dyn2.omega)
             if self.use_obstacles:
                 for val in curr_quad_col:
                     obstacle_id = quad_obst_pair[int(val)]
@@ -553,7 +556,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Concatenate observations of neighbor drones
         if self.num_use_neighbor_obs > 0:
-
             obs = self.add_neighborhood_obs(obs)
 
         # Concatenate obstacle observations

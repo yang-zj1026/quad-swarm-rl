@@ -31,7 +31,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
 
     def reset(self, obst_map=None, cell_centers=None):
         # Update duration time
-        duration_time = np.random.uniform(low=6.0, high=8.0)
+        duration_time = np.random.uniform(low=4.0, high=6.0)
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
 
         self.obstacle_map = obst_map
