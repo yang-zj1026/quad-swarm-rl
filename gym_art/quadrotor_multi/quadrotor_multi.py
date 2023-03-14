@@ -7,6 +7,7 @@ import gym
 
 from copy import deepcopy
 
+from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs
 from gym_art.quadrotor_multi.quad_utils import perform_collision_between_drones, \
     calculate_obst_drone_proximity_penalties, \
     calculate_collision_matrix, calculate_drone_proximity_penalties, perform_collision_with_obstacle, perform_downwash, \
@@ -202,7 +203,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.crashes_in_recent_episodes = deque([], maxlen=100)
         self.crashes_last_episode = 0
 
-        self.distance_to_goal = [[] for _ in range(len(self.envs))]
+        self.distance_to_goal, self.distance_to_goal_xy, self.distance_to_goal_z = [[] for _ in range(len(self.envs))], [[] for _ in range(len(self.envs))], [[] for _ in range(len(self.envs))]
         self.sim_freq = sim_freq
         self.sim_steps = sim_steps
 
@@ -392,7 +393,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.reset_scene = True
         self.crashes_last_episode = 0
 
-        self.distance_to_goal = [[] for _ in range(len(self.envs))]
+        self.distance_to_goal, self.distance_to_goal_xy, self.distance_to_goal_z = [[] for _ in range(len(self.envs))], [[] for _ in range(len(self.envs))], [[] for _ in range(len(self.envs))]
         return obs
 
     # noinspection PyTypeChecker
@@ -412,6 +413,9 @@ class QuadrotorEnvMulti(gym.Env):
 
             if self.envs[i].time_remain < 5 * self.sim_freq / self.sim_steps:
                 self.distance_to_goal[i].append(-info["rewards"]["rewraw_pos"] * self.sim_freq)
+                self.distance_to_goal_xy[i].append(-info["rewards"]["rewraw_pos_xy_raw"] * self.sim_freq)
+                self.distance_to_goal_z[i].append(-info["rewards"]["rewraw_pos_z_raw"] * self.sim_freq)
+
 
         # # Pre-set variables
         # dyn_positions = np.array([env.dynamics.pos for env in self.envs])
@@ -582,6 +586,8 @@ class QuadrotorEnvMulti(gym.Env):
                     }
                 else:
                     self.distance_to_goal = np.array(self.distance_to_goal)
+                    self.distance_to_goal_xy = np.array(self.distance_to_goal_xy)
+                    self.distance_to_goal_z = np.array(self.distance_to_goal_z)
                     infos[i]['episode_extra_stats'] = {
                         'num_collisions': self.collisions_per_episode,
                         'num_collisions_with_room': self.collisions_room_per_episode,
@@ -599,6 +605,30 @@ class QuadrotorEnvMulti(gym.Env):
                         'distance_to_goal_5s': np.mean(
                             self.distance_to_goal[i, int(-5 * self.sim_freq / self.sim_steps):])
                     }
+                    quads_sdf_obs = 10 * np.ones((1, 9))
+                    sdfs = get_surround_sdfs(quad_poses=np.array([self.envs[0].goal[:2]]), obst_poses=self.obstacles.pos_arr[:, :2],
+                                      quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacles.obstacle_radius,
+                                      resolution=0.1, obst_obs_clip=10)
+
+                    print('sdfs:    ', sdfs[0][4])
+
+                    print('collisiion: ', self.obst_quad_collisions_per_episode)
+
+                    print('distance_to_goal_5s:     ', np.mean(self.distance_to_goal[i, int(-5 * self.sim_freq / self.sim_steps):]))
+                    print('distance_to_goal_3s:     ', np.mean(self.distance_to_goal[i, int(-3 * self.sim_freq / self.sim_steps):]))
+                    print('distance_to_goal_1s:     ', np.mean(self.distance_to_goal[i, int(-1 * self.sim_freq / self.sim_steps):]))
+
+                    print('distance_to_goal_0.5s:     ', np.mean(self.distance_to_goal[i, int(-0.5 * self.sim_freq / self.sim_steps):]))
+                    print('distance_to_goal_0.3s:     ', np.mean(self.distance_to_goal[i, int(-0.3 * self.sim_freq / self.sim_steps):]))
+                    print('distance_to_goal_0.1s:     ', np.mean(self.distance_to_goal[i, int(-0.1 * self.sim_freq / self.sim_steps):]))
+
+                    print('distance_to_goal_xy_1s:     ', np.mean(self.distance_to_goal_xy[i, int(-1 * self.sim_freq / self.sim_steps):]))
+                    print('distance_to_goal_xy_0.5s:     ', np.mean(self.distance_to_goal_xy[i, int(-0.5 * self.sim_freq / self.sim_steps):]))
+
+
+                    print('distance_to_goal_z_1s:     ', np.mean(self.distance_to_goal_z[i, int(-1 * self.sim_freq / self.sim_steps):]))
+                    print('distance_to_goal_z_0.5s:     ', np.mean(self.distance_to_goal_z[i, int(-0.5 * self.sim_freq / self.sim_steps):]))
+
 
                     if self.use_obstacles:
                         infos[i]['episode_extra_stats']['num_collisions_obst_quad'] = \
