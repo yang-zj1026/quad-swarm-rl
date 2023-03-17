@@ -5,7 +5,8 @@ from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision
 
 
 class MultiObstacles:
-    def __init__(self, num_obstacles=0, room_dims=np.array([10, 10, 10]), resolution=0.05, obstacle_size=1.0, obst_shape="cube"):
+    def __init__(self, num_obstacles=0, room_dims=np.array([10, 10, 10]), resolution=0.05, obstacle_size=1.0, obst_shape="cube",
+                 obst_obs_clip=1.0):
         self.num_obstacles = num_obstacles
         self.room_dims = room_dims
         self.obst_shape = obst_shape
@@ -13,6 +14,7 @@ class MultiObstacles:
         self.obstacle_radius = obstacle_size / 2.0
         self.pos_arr = []
         self.resolution = resolution
+        self.obst_obs_clip = obst_obs_clip
 
     def reset(self, obs=None, quads_pos=None, pos_arr=None):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
@@ -20,7 +22,7 @@ class MultiObstacles:
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
                                           quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                          resolution=self.resolution)
+                                          resolution=self.resolution, obst_obs_clip=self.obst_obs_clip)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
@@ -30,7 +32,7 @@ class MultiObstacles:
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
                                           quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                          resolution=self.resolution)
+                                          resolution=self.resolution, obst_obs_clip=self.obst_obs_clip)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 

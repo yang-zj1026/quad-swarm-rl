@@ -46,11 +46,12 @@ class Scenario_o_random(Scenario_o_base):
 
         return start_point, end_point, start_quadrant
 
-    def reset(self, obst_map=None):
+    def reset(self, obst_map=None, cell_centers=None):
         self.start_point = []
         self.end_point = []
 
         self.obstacle_map = obst_map
+        self.cell_centers = cell_centers
         if obst_map is None:
             raise NotImplementedError
 

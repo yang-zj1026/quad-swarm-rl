@@ -52,7 +52,7 @@ class Scenario_o_base(QuadrotorScenario):
 
         return infos, rewards
 
-    def reset(self, obst_map=None):
+    def reset(self, obst_map=None, cell_centers=None):
         self.start_point = self.generate_pos()
         self.end_point = self.generate_pos()
         self.duration_time = np.random.uniform(low=2.0, high=4.0)

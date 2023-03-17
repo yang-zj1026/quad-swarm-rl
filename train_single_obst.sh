@@ -13,4 +13,4 @@ python -m swarm_rl.train \
 --normalize_input=False --normalize_returns=False --reward_clip=10 \
 --use_obstacles=True --quads_obstacle_size=0.6 --quads_obstacle_density=0.2 \
 --quads_obst_collision_smooth_max_penalty=0.0 --quads_obst_collision_reward=2.0 \
---experiment=obstacles_single_large_model
+--experiment=obstacles_single
