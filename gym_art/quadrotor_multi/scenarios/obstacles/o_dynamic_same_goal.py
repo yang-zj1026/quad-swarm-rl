@@ -15,7 +15,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
     def update_formation_size(self, new_formation_size):
         pass
 
-    def step(self, infos, rewards):
+    def step(self):
         tick = self.envs[0].tick
         if tick % self.control_step_for_sec == 0 and tick > 0:
             box_size = self.envs[0].box
@@ -27,7 +27,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
             for i, env in enumerate(self.envs):
                 env.goal = self.goals[i]
 
-        return infos, rewards
+        return
 
     def reset(self, obst_map=None, cell_centers=None):
         # Update duration time

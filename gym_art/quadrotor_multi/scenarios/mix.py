@@ -19,7 +19,7 @@ from gym_art.quadrotor_multi.scenarios.obstacles.o_uniform_diff_goal_spawn impor
 from gym_art.quadrotor_multi.scenarios.obstacles.o_uniform_same_goal_spawn import Scenario_o_uniform_same_goal_spawn
 from gym_art.quadrotor_multi.scenarios.obstacles.o_uniform_swarm_vs_swarm import Scenario_o_uniform_swarm_vs_swarm
 from gym_art.quadrotor_multi.scenarios.test.test_mix import Scenario_mix_test
-from gym_art.quadrotor_multi.scenarios.obstacles.o_test import Scenario_o_test
+from gym_art.quadrotor_multi.scenarios.test.o_test import Scenario_o_test
 from gym_art.quadrotor_multi.scenarios.obstacles.o_random import Scenario_o_random
 from gym_art.quadrotor_multi.scenarios.obstacles.o_dynamic_diff_goal import Scenario_o_dynamic_diff_goal
 from gym_art.quadrotor_multi.scenarios.obstacles.o_dynamic_same_goal import Scenario_o_dynamic_same_goal
@@ -68,12 +68,12 @@ class Scenario_mix(QuadrotorScenario):
         """
         return self.scenario.__class__.__name__
 
-    def step(self, infos, rewards):
-        infos, rewards = self.scenario.step(infos=infos, rewards=rewards)
+    def step(self):
+        self.scenario.step()
         # This is set for obstacle mode
         self.goals = self.scenario.goals
         self.formation_size = self.scenario.formation_size
-        return infos, rewards
+        return
 
     def reset(self, obstacle_map=None, cell_centers=None):
         mode_index = np.random.randint(low=0, high=len(self.quads_mode_list))

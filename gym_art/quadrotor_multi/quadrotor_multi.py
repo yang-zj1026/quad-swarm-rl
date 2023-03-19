@@ -544,7 +544,7 @@ class QuadrotorEnvMulti(gym.Env):
         apply_room_collision = self.simulate_collision_with_room(wall_crash_list, ceiling_crash_list)
 
         # 4. Run the scenario passed to self.quads_mode
-        infos, rewards = self.scenario.step(infos=infos, rewards=rewards)
+        self.scenario.step()
 
         # 5. Collect final observations
         # Collect positions after physical interaction

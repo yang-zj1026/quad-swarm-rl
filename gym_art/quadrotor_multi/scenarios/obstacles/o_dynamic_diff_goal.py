@@ -21,7 +21,7 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
                                          layer_dist=self.layer_dist)
         np.random.shuffle(self.goals)
 
-    def step(self, infos, rewards):
+    def step(self):
         tick = self.envs[0].tick
         if tick % self.control_step_for_sec == 0 and tick > 0:
             box_size = self.envs[0].box
@@ -33,7 +33,7 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
             for i, env in enumerate(self.envs):
                 env.goal = self.goals[i]
 
-        return infos, rewards
+        return
 
     def reset(self, obst_map=None, cell_centers=None):
         # Update duration time
