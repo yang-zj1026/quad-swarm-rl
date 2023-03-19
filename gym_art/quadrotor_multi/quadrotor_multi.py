@@ -372,15 +372,16 @@ class QuadrotorEnvMulti(gym.Env):
             obs.append(observation)
             self.pos[i, :] = e.dynamics.pos
 
+        # extend obs to see neighbors
+        obs = self.add_neighborhood_obs(obs)
+
+        # extend obs to see obstacles
         if self.use_obstacles:
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
             obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr)
 
             self.obst_quad_collisions_per_episode = 0
             self.prev_obst_quad_collisions = []
-
-        # extend obs to see neighbors
-        obs = self.add_neighborhood_obs(obs)
 
         self.all_collisions = {val: [0.0 for _ in range(len(self.envs))] for val in ['drone', 'ground', 'obstacle']}
 
