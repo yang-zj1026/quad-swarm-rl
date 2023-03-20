@@ -59,14 +59,3 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
         self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
                                          layer_dist=self.layer_dist)
         np.random.shuffle(self.goals)
-
-    def generate_pos_obst_map(self):
-        idx = np.random.choice(a=len(self.free_space), replace=True)
-        z_list_start = np.random.uniform(low=0.5, high=3.0)
-        xy_noise = np.random.uniform(low=-0.5, high=0.5, size=2)
-
-        x, y = self.free_space[idx][0], self.free_space[idx][1]
-        index = x + (10 * y)
-        pos_x, pos_y = self.cell_centers[index]
-
-        return np.array([pos_x + xy_noise[0], pos_y + xy_noise[1], z_list_start])
