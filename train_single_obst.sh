@@ -9,7 +9,7 @@ python -m swarm_rl.train \
 --quads_neighbor_hidden_size=256 --neighbor_obs_type=none --quads_neighbor_encoder_type=no_encoder \
 --quads_collision_hitbox_radius=2.0 --quads_collision_falloff_radius=4.0 \
 --quads_local_obs=-1 --quads_num_agents=1 \
---replay_buffer_sample_prob=0 --anneal_collision_steps=0 --save_milestones_sec=1800 \
+--replay_buffer_sample_prob=0.75 --anneal_collision_steps=0 --save_milestones_sec=1800 \
 --normalize_input=False --normalize_returns=False --reward_clip=10 \
 --use_obstacles=True --quads_obstacle_size=0.6 --quads_obstacle_density=0.2 \
 --quads_obst_collision_smooth_max_penalty=0.0 --quads_obst_collision_reward=2.0 \
