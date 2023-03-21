@@ -142,6 +142,7 @@ class QuadrotorEnvMulti(gym.Env):
         if self.use_obstacles:
             self.prev_obst_quad_collisions = []
             self.obst_quad_collisions_per_episode = 0
+            self.obst_quad_collisions_after_settle = 0
             self.obst_shape = obst_shape
             self.obstacle_density = obstacle_density
             self.num_obstacles = num_obstacles
@@ -442,7 +443,12 @@ class QuadrotorEnvMulti(gym.Env):
             # We assume drone can only collide with one obstacle at the same time.
             # Given this setting, in theory, the gap between obstacles should >= 0.1 (drone diameter: 0.46*2 = 0.92)
             self.curr_quad_col = np.setdiff1d(obst_quad_col_matrix, self.prev_obst_quad_collisions)
-            self.obst_quad_collisions_per_episode += len(self.curr_quad_col)
+            collisions_obst_curr_tick = len(self.curr_quad_col)
+            self.obst_quad_collisions_per_episode += collisions_obst_curr_tick
+
+            if collisions_obst_curr_tick > 0:
+                if self.envs[0].tick >= self.collisions_grace_period_seconds * self.control_freq:
+                    self.obst_quad_collisions_after_settle += collisions_obst_curr_tick
 
             self.prev_obst_quad_collisions = obst_quad_col_matrix
 

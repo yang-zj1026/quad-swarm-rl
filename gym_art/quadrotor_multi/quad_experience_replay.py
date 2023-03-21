@@ -155,7 +155,7 @@ class ExperienceReplayWrapper(gym.Wrapper):
 
             # we want to use these for tensorboard, so reset them to zero to get accurate stats
             replayed_env.collisions_per_episode = replayed_env.collisions_after_settle = 0
-            replayed_env.obst_quad_collisions_per_episode = 0
+            replayed_env.obst_quad_collisions_per_episode = replayed_env.obst_quad_collisions_after_settle = 0
             self.env = replayed_env
 
             self.replay_buffer.cleanup()
