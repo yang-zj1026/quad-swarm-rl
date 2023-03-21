@@ -9,7 +9,7 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
         super().__init__(quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
                          quads_formation_size)
         # teleport every [4.0, 6.0] secs
-        duration_time = 5.0
+        duration_time = 6.0
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
 
     def update_goals(self):
