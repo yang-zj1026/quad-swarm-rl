@@ -58,15 +58,3 @@ class Scenario_o_random(Scenario_o_base):
 
         self.formation_center = np.array((0., 0., 2.))
         self.goals = copy.deepcopy(self.start_point)
-
-    def generate_pos_obst_map(self):
-        idx = np.random.choice(a=len(self.free_space), replace=True)
-        z_list_start = np.random.uniform(low=0.5, high=3.0)
-        xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
-
-        x, y = self.free_space[idx][0], self.free_space[idx][1]
-        length = self.obstacle_map.shape[0]
-        index = y + (length * x)
-        pos_x, pos_y = self.cell_centers[index]
-
-        return np.array([pos_x + xy_noise[0], pos_y + xy_noise[1], z_list_start])
