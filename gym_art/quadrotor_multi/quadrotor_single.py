@@ -678,6 +678,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
     cost_pos = rew_coeff["pos"] * cost_pos_raw
 
     # sphere of equal reward if drones are close to the goal position
+    vel_coeff = rew_coeff["vel"]
     ##################################################
     # penalize amount of control effort
     cost_effort_raw = np.linalg.norm(action)
@@ -688,6 +689,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
     cost_act_change = rew_coeff["action_change"] * cost_act_change_raw
 
     ##################################################
+    ## loss velocity
+    cost_vel_raw = np.linalg.norm(dynamics.vel)
+    cost_vel = vel_coeff * cost_vel_raw
+
     ## Loss orientation
     if on_floor:
         cost_orient_raw = 1.0
