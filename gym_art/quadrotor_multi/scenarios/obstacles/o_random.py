@@ -44,8 +44,8 @@ class Scenario_o_random(Scenario_o_base):
 
         for i in range(self.num_agents):
             start_goal, end_goal = self.generate_pos_obst_map(), self.generate_pos_obst_map()
-            while np.linalg.norm(start_goal - end_goal) < self.room_dims[0] / 2:
-                end_goal = self.generate_pos_obst_map()
+            # while np.linalg.norm(start_goal - end_goal) < self.room_dims[0] / 2:
+            end_goal = self.generate_pos_obst_map()
 
             self.start_point.append(start_goal)
             self.end_point.append(end_goal)
