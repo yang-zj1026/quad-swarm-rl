@@ -58,17 +58,22 @@ class Scenario_o_base(QuadrotorScenario):
         self.duration_time = np.random.uniform(low=2.0, high=4.0)
         self.standard_reset(formation_center=self.start_point)
 
-    def generate_pos_obst_map(self):
+    def generate_pos_obst_map(self, check_surroundings=False):
         idx = np.random.choice(a=len(self.free_space), replace=True)
-        z_list_start = np.random.uniform(low=0.5, high=3.0)
-        xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
-
         x, y = self.free_space[idx][0], self.free_space[idx][1]
+        if check_surroundings:
+            surroundings_free = self.check_surroundings(x, y)
+            while not surroundings_free:
+                idx = np.random.choice(a=len(self.free_space), replace=True)
+                x, y = self.free_space[idx][0], self.free_space[idx][1]
+                surroundings_free = self.check_surroundings(x, y)
+
         width = self.obstacle_map.shape[0]
         index = x + (width * y)
         pos_x, pos_y = self.cell_centers[index]
-
-        return np.array([pos_x + xy_noise[0], pos_y + xy_noise[1], z_list_start])
+        z_list_start = np.random.uniform(low=0.5, high=3.0)
+        # xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
+        return np.array([pos_x, pos_y, z_list_start])
 
     def check_surroundings(self, row, col):
         length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
@@ -82,15 +87,21 @@ class Scenario_o_base(QuadrotorScenario):
         if row > 0:
             check_pos_x.append(row - 1)
             check_pos_y.append(col)
-            if row < width - 1:
-                check_pos_x.append(row + 1)
-                check_pos_y.append(col)
+            if col > 0:
+                check_pos_x.append(row - 1)
+                check_pos_y.append(col - 1)
+        if row < width - 1:
+            check_pos_x.append(row + 1)
+            check_pos_y.append(col)
 
         if col > 0:
             check_pos_x.append(row)
             check_pos_y.append(col - 1)
-            if col < length - 1:
-                check_pos_x.append(row)
+        if col < length - 1:
+            check_pos_x.append(row)
+            check_pos_y.append(col + 1)
+            if row < length - 1:
+                check_pos_x.append(row + 1)
                 check_pos_y.append(col + 1)
 
         check_pos = ([check_pos_x, check_pos_y])

@@ -24,6 +24,7 @@ from gym_art.quadrotor_multi.scenarios.obstacles.o_random import Scenario_o_rand
 from gym_art.quadrotor_multi.scenarios.obstacles.o_dynamic_diff_goal import Scenario_o_dynamic_diff_goal
 from gym_art.quadrotor_multi.scenarios.obstacles.o_dynamic_same_goal import Scenario_o_dynamic_same_goal
 from gym_art.quadrotor_multi.scenarios.obstacles.o_diagonal import Scenario_o_diagonal
+from gym_art.quadrotor_multi.scenarios.obstacles.o_static_same_goal import Scenario_o_static_same_goal
 
 
 def create_scenario(quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
