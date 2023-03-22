@@ -15,7 +15,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_neighbor_hidden_size=256 --neighbor_obs_type=none --quads_neighbor_encoder_type=no_encoder '
     '--quads_local_obs=-1 --quads_num_agents=1 '
     '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_group=obstacles_single_new_simulation --wandb_user=multi-drones '
-    '--anneal_collision_steps=300000000 --replay_buffer_sample_prob=0'
+    '--anneal_collision_steps=300000000 --replay_buffer_sample_prob=0.75'
 )
 
 _experiment = Experiment(
