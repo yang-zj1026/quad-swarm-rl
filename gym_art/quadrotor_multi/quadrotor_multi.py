@@ -610,6 +610,7 @@ class QuadrotorEnvMulti(gym.Env):
                                       quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacles.obstacle_radius,
                                       resolution=0.1, obst_obs_clip=10)
 
+                    print('Scenario:', self.scenario.name())
                     print('sdfs:    ', sdfs[0][4])
 
                     print('collisiion: ', self.obst_quad_collisions_per_episode)
