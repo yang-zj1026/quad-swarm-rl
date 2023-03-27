@@ -219,7 +219,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.dis_to_goal_last_episode = 0
         self.curr_obstacle_density_level = 0
-        self.obstacle_density_level = [0., 0.1, 0.2, 0.3]
+        self.obstacle_density_level = [0., 0.05, 0.1, 0.15, 0.2, 0.25]
 
     def set_room_dims(self, dims):
         # dims is a (x, y, z) tuple
@@ -341,7 +341,7 @@ class QuadrotorEnvMulti(gym.Env):
         return res
 
     def update_obstacle_density_level(self):
-        res = np.mean(self.dis_to_goal_in_recent_episodes) < 0.1 and len(self.dis_to_goal_in_recent_episodes) >= 10
+        res = np.mean(self.dis_to_goal_in_recent_episodes) < 0.1 and len(self.dis_to_goal_in_recent_episodes) >= 50
         if res:
             self.curr_obstacle_density_level = (self.curr_obstacle_density_level + 1) % len(self.obstacle_density_level)
             self.dis_to_goal_in_recent_episodes.clear()
