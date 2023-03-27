@@ -24,6 +24,8 @@ class MultiHeadAttention(nn.Module):
         self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5)
         self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
 
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+
     def forward(self, q, k, v, mask=None):
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
         size_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
@@ -49,6 +51,8 @@ class MultiHeadAttention(nn.Module):
         q = q.transpose(1, 2).contiguous().view(size_b, len_q, -1)
         q = self.fc(q)
         q += residual
+
+        q = self.layer_norm(q)
 
         return q, attn
 

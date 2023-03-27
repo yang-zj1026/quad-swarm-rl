@@ -186,7 +186,7 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         )
 
         # Attention Layer
-        self.attention_layer = MultiHeadAttention(3, cfg.rnn_size, cfg.rnn_size, cfg.rnn_size)
+        self.attention_layer = MultiHeadAttention(4, cfg.rnn_size, cfg.rnn_size, cfg.rnn_size)
 
         # MLP Layer
         self.feed_forward = nn.Sequential(fc_layer(3 * cfg.rnn_size, 2 * cfg.rnn_size, spec_norm=self.use_spectral_norm),
@@ -204,12 +204,11 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         self_embed = self.self_embed_layer(obs_self)
         neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
         obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
-        self_embed = self_embed.view(batch_size, 1, -1)
         neighbor_embed = neighbor_embed.view(batch_size, 1, -1)
         obstacle_embed = obstacle_embed.view(batch_size, 1, -1)
-        embeddings = torch.cat((self_embed, neighbor_embed, obstacle_embed), dim=1)
+        attn_embed = torch.cat((neighbor_embed, obstacle_embed), dim=1)
 
-        embeddings, attn_embed = self.attention_layer(embeddings, embeddings, embeddings)
+        embeddings, attn_embed = self.attention_layer(attn_embed, attn_embed, attn_embed)
         embeddings = embeddings.view(batch_size, -1)
 
         out = self.feed_forward(embeddings)
