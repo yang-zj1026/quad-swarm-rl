@@ -598,6 +598,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # 7. DONES
         if any(dones):
+            self.distance_to_goal = np.array(self.distance_to_goal)
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
                     infos[i]['episode_extra_stats'] = {
@@ -605,7 +606,6 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_obst_replay': self.obst_quad_collisions_per_episode,
                     }
                 else:
-                    self.distance_to_goal = np.array(self.distance_to_goal)
                     infos[i]['episode_extra_stats'] = {
                         'num_collisions': self.collisions_per_episode,
                         'num_collisions_with_room': self.collisions_room_per_episode,
