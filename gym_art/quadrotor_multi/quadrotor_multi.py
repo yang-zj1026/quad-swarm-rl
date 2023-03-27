@@ -214,7 +214,12 @@ class QuadrotorEnvMulti(gym.Env):
         self.obstacle_area_length = obstacle_area_length
         self.obstacle_area_width = obstacle_area_width
         self.obstacle_obs_clip = obstacle_obs_clip
-        self.curr_quad_col = False
+        self.curr_quad_col = []
+        self.dis_to_goal_in_recent_episodes = deque([], maxlen=100)
+
+        self.dis_to_goal_last_episode = 0
+        self.curr_obstacle_density_level = 0
+        self.obstacle_density_level = [0., 0.1, 0.2, 0.3]
 
     def set_room_dims(self, dims):
         # dims is a (x, y, z) tuple
@@ -335,6 +340,13 @@ class QuadrotorEnvMulti(gym.Env):
         res = abs(np.mean(self.crashes_in_recent_episodes)) < 1 and len(self.crashes_in_recent_episodes) >= 10
         return res
 
+    def update_obstacle_density_level(self):
+        res = np.mean(self.dis_to_goal_in_recent_episodes) < 0.1 and len(self.dis_to_goal_in_recent_episodes) >= 10
+        if res:
+            self.curr_obstacle_density_level = (self.curr_obstacle_density_level + 1) % len(self.obstacle_density_level)
+            self.dis_to_goal_in_recent_episodes.clear()
+        return self.obstacle_density_level[self.curr_obstacle_density_level]
+
     def init_scene_multi(self):
         models = tuple(e.dynamics.model for e in self.envs)
         self.scene = Quadrotor3DSceneMulti(
@@ -349,10 +361,13 @@ class QuadrotorEnvMulti(gym.Env):
     def reset(self):
         obs, rewards, dones, infos = [], [], [], []
         if self.use_obstacles:
+            self.dis_to_goal_in_recent_episodes.append(self.dis_to_goal_last_episode)
+            self.update_obstacle_density_level()
+            obstacle_density = self.obstacle_density_level[self.curr_obstacle_density_level]
             self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density(
                 obst_area_length=self.obstacle_area_length,
                 obst_area_width=self.obstacle_area_width,
-                density=self.obstacle_density)
+                density=obstacle_density)
             self.scenario.reset(self.obst_map, cell_centers)
             self.obst_pos_arr = copy.deepcopy(obst_pos_arr)
         else:
@@ -437,18 +452,21 @@ class QuadrotorEnvMulti(gym.Env):
         self.prev_drone_collisions = curr_drone_collisions
 
         # 2) Collisions with obstacles
+        obst_quad_col_matrix = []
         rew_obst_quad_collisions_raw = np.zeros(self.num_agents)
+        curr_quad_col, quad_obst_pair = [], []
         if self.use_obstacles:
-            obst_quad_col_matrix, quad_obst_pair = self.obstacles.collision_detection(pos_quads=self.pos)
-            # We assume drone can only collide with one obstacle at the same time.
-            # Given this setting, in theory, the gap between obstacles should >= 0.1 (drone diameter: 0.46*2 = 0.92)
-            self.curr_quad_col = np.setdiff1d(obst_quad_col_matrix, self.prev_obst_quad_collisions)
-            collisions_obst_curr_tick = len(self.curr_quad_col)
-            self.obst_quad_collisions_per_episode += collisions_obst_curr_tick
+            if self.obstacle_density_level[self.curr_obstacle_density_level] > 0:
+                obst_quad_col_matrix, quad_obst_pair = self.obstacles.collision_detection(pos_quads=self.pos)
+                # We assume drone can only collide with one obstacle at the same time.
+                # Given this setting, in theory, the gap between obstacles should >= 0.1 (drone diameter: 0.46*2 = 0.92)
+                self.curr_quad_col = np.setdiff1d(obst_quad_col_matrix, self.prev_obst_quad_collisions)
+                collisions_obst_curr_tick = len(self.curr_quad_col)
+                self.obst_quad_collisions_per_episode += collisions_obst_curr_tick
 
-            if collisions_obst_curr_tick > 0:
-                if self.envs[0].tick >= self.collisions_grace_period_seconds * self.control_freq:
-                    self.obst_quad_collisions_after_settle += collisions_obst_curr_tick
+                if collisions_obst_curr_tick > 0:
+                    if self.envs[0].tick >= self.collisions_grace_period_seconds * self.control_freq:
+                        self.obst_quad_collisions_after_settle += collisions_obst_curr_tick
 
             self.prev_obst_quad_collisions = obst_quad_col_matrix
 
@@ -562,11 +580,9 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Concatenate observations of neighbor drones
         if self.num_use_neighbor_obs > 0:
-
             obs = self.add_neighborhood_obs(obs)
 
         # Concatenate obstacle observations
-
         if self.use_obstacles:
             obs = self.obstacles.step(obs=obs, quads_pos=self.pos)
             # if self.num_obstacles == 0:
@@ -616,6 +632,7 @@ class QuadrotorEnvMulti(gym.Env):
                         infos[i]['episode_extra_stats'][f'num_collisions_obst_{self.scenario.name()}'] = \
                             self.obst_quad_collisions_per_episode
 
+            self.dis_to_goal_last_episode = np.mean(self.distance_to_goal[0, int(-1 * self.sim_freq / self.sim_steps):])
             obs = self.reset()
             # terminate the episode for all "sub-envs"
             dones = [True] * len(dones)
