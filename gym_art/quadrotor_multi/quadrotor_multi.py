@@ -621,7 +621,9 @@ class QuadrotorEnvMulti(gym.Env):
                         'distance_to_goal_3s': np.mean(
                             self.distance_to_goal[i, int(-3 * self.sim_freq / self.sim_steps):]),
                         'distance_to_goal_5s': np.mean(
-                            self.distance_to_goal[i, int(-5 * self.sim_freq / self.sim_steps):])
+                            self.distance_to_goal[i, int(-5 * self.sim_freq / self.sim_steps):]),
+
+                        'obstacle_density': self.obstacle_density_level[self.curr_obstacle_density_level],
                     }
 
                     if self.use_obstacles:
