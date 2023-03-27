@@ -208,9 +208,10 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         obstacle_embed = obstacle_embed.view(batch_size, 1, -1)
         attn_embed = torch.cat((neighbor_embed, obstacle_embed), dim=1)
 
-        embeddings, attn_embed = self.attention_layer(attn_embed, attn_embed, attn_embed)
-        embeddings = embeddings.view(batch_size, -1)
+        attn_embed, attn_score = self.attention_layer(attn_embed, attn_embed, attn_embed)
+        attn_embed = attn_embed.view(batch_size, -1)
 
+        embeddings = torch.cat((self_embed, attn_embed), dim=1)
         out = self.feed_forward(embeddings)
 
         return out
