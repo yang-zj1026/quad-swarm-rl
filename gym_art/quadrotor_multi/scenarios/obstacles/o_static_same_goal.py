@@ -29,8 +29,6 @@ class Scenario_o_static_same_goal(Scenario_o_base):
         return
 
     def reset(self, obst_map=None, cell_centers=None):
-        self.start_point = []
-
         # Update duration time
         self.duration_time = np.random.uniform(low=4.0, high=6.0)
         self.control_step_for_sec = int(self.duration_time * self.envs[0].control_freq)
@@ -43,6 +41,7 @@ class Scenario_o_static_same_goal(Scenario_o_base):
         obst_map_locs = np.where(self.obstacle_map == 0)
         self.free_space = list(zip(*obst_map_locs))
 
+        self.start_point = []
         for i in range(self.num_agents):
             self.start_point.append(self.generate_pos_obst_map())
 

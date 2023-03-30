@@ -3,7 +3,7 @@ import numpy as np
 from gym_art.quadrotor_multi.scenarios.obstacles.o_base import Scenario_o_base
 
 
-class Scenario_o_dynamic_same_goal(Scenario_o_base):
+class Scenario_o_swap_goals(Scenario_o_base):
     def __init__(self, quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
                  quads_formation_size):
         super().__init__(quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
@@ -12,20 +12,16 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         duration_time = 6.0
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
 
-    def update_formation_size(self, new_formation_size):
-        pass
+    def update_goals(self):
+        np.random.shuffle(self.goals)
+        for env, goal in zip(self.envs, self.goals):
+            env.goal = goal
 
     def step(self):
         tick = self.envs[0].tick
+        # Switch every [4, 6] seconds
         if tick % self.control_step_for_sec == 0 and tick > 0:
-            box_size = self.envs[0].box
-            self.formation_center = self.generate_pos_obst_map()
-            self.formation_center[2] = max(0.25, self.formation_center[2])
-
-            self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
-                                             layer_dist=0.0)
-            for i, env in enumerate(self.envs):
-                env.goal = self.goals[i]
+            self.update_goals()
 
         return
 
