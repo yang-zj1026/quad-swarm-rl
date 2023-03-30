@@ -10,7 +10,7 @@ Implementation of Attention Block from https://github.com/jadore801120/attention
 class MultiHeadAttention(nn.Module):
     """ Multi-Head Attention module """
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+    def __init__(self, n_head, d_model, d_k, d_v):
         super().__init__()
 
         self.n_head = n_head
@@ -24,7 +24,6 @@ class MultiHeadAttention(nn.Module):
 
         self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5)
 
-        self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
     def forward(self, q, k, v, mask=None):
@@ -50,7 +49,7 @@ class MultiHeadAttention(nn.Module):
         # Transpose to move the head dimension back: b x lq x n x dv
         # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
         q = q.transpose(1, 2).contiguous().view(size_b, len_q, -1)
-        q = self.dropout(self.fc(q))
+        q = self.fc(q)
         q += residual
 
         q = self.layer_norm(q)

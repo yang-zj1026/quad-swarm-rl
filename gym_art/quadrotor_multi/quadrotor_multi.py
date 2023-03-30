@@ -355,7 +355,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density(
                 obst_area_length=self.obstacle_area_length,
                 obst_area_width=self.obstacle_area_width,
-                density=self.obstacle_density)
+                density=self.obstacle_density, test=False)
             self.scenario.reset(self.obst_map, cell_centers)
             self.obst_pos_arr = copy.deepcopy(obst_pos_arr)
         else:
@@ -612,44 +612,44 @@ class QuadrotorEnvMulti(gym.Env):
                         'distance_to_goal_5s': np.mean(
                             self.distance_to_goal[i, int(-5 * self.sim_freq / self.sim_steps):])
                     }
-                    quads_sdf_obs = 10 * np.ones((1, 9))
-                    print('Scenario:', self.scenario.name())
-                    if self.obstacle_density > 0:
-                        sdfs = get_surround_sdfs(quad_poses=np.array([self.envs[0].goal[:2]]),
+                quads_sdf_obs = 10 * np.ones((1, 9))
+                print('Scenario:', self.scenario.name())
+                if self.use_obstacles and self.obstacle_density > 0:
+                    sdfs = get_surround_sdfs(quad_poses=np.array([self.envs[0].goal[:2]]),
                                                  obst_poses=self.obstacles.pos_arr[:, :2],
                                                  quads_sdf_obs=quads_sdf_obs,
                                                  obst_radius=self.obstacles.obstacle_radius,
                                                  resolution=0.1, obst_obs_clip=10)
 
-                        print('sdfs:    ', sdfs[0][4])
+                    print('sdfs:    ', sdfs[0][4])
 
-                    print('collisiion: ', self.obst_quad_collisions_per_episode)
+                print('collisiion: ', self.obst_quad_collisions_per_episode)
 
-                    print('distance_to_goal_5s:     ',
+                print('distance_to_goal_5s:     ',
                           np.mean(self.distance_to_goal[i, int(-5 * self.sim_freq / self.sim_steps):]))
-                    print('distance_to_goal_3s:     ',
+                print('distance_to_goal_3s:     ',
                           np.mean(self.distance_to_goal[i, int(-3 * self.sim_freq / self.sim_steps):]))
-                    print('distance_to_goal_1s:     ',
+                print('distance_to_goal_1s:     ',
                           np.mean(self.distance_to_goal[i, int(-1 * self.sim_freq / self.sim_steps):]))
 
-                    print('distance_to_goal_0.5s:     ',
+                print('distance_to_goal_0.5s:     ',
                           np.mean(self.distance_to_goal[i, int(-0.5 * self.sim_freq / self.sim_steps):]))
-                    print('distance_to_goal_0.3s:     ',
+                print('distance_to_goal_0.3s:     ',
                           np.mean(self.distance_to_goal[i, int(-0.3 * self.sim_freq / self.sim_steps):]))
-                    print('distance_to_goal_0.1s:     ',
+                print('distance_to_goal_0.1s:     ',
                           np.mean(self.distance_to_goal[i, int(-0.1 * self.sim_freq / self.sim_steps):]))
 
-                    print('distance_to_goal_xy_1s:     ',
+                print('distance_to_goal_xy_1s:     ',
                           np.mean(self.distance_to_goal_xy[i, int(-1 * self.sim_freq / self.sim_steps):]))
-                    print('distance_to_goal_xy_0.5s:     ',
+                print('distance_to_goal_xy_0.5s:     ',
                           np.mean(self.distance_to_goal_xy[i, int(-0.5 * self.sim_freq / self.sim_steps):]))
 
-                    print('distance_to_goal_z_1s:     ',
+                print('distance_to_goal_z_1s:     ',
                           np.mean(self.distance_to_goal_z[i, int(-1 * self.sim_freq / self.sim_steps):]))
-                    print('distance_to_goal_z_0.5s:     ',
+                print('distance_to_goal_z_0.5s:     ',
                           np.mean(self.distance_to_goal_z[i, int(-0.5 * self.sim_freq / self.sim_steps):]))
 
-                    if self.use_obstacles:
+                if self.use_obstacles:
                         infos[i]['episode_extra_stats']['num_collisions_obst_quad'] = \
                             self.obst_quad_collisions_per_episode
                         infos[i]['episode_extra_stats'][f'num_collisions_obst_{self.scenario.name()}'] = \
@@ -672,7 +672,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         return floor_crash_list, wall_crash_list, ceiling_crash_list
 
-    def obst_generation_given_density(self, obst_area_length=6.0, obst_area_width=6.0, grid_size=1.0, density=0.2):
+    def obst_generation_given_density(self, obst_area_length=6.0, obst_area_width=6.0, grid_size=1.0, density=0.2, test=False):
         r, c = int(obst_area_length), int(obst_area_width)
         num_room_grids = r * c
 
@@ -681,7 +681,10 @@ class QuadrotorEnvMulti(gym.Env):
 
         room_map = [i for i in range(0, num_room_grids)]
 
-        obst_index = np.random.choice(a=room_map, size=int(num_room_grids * density), replace=False)
+        if test:
+            obst_index = [r // 2 + cid * r for cid in range(c)]
+        else:
+            obst_index = np.random.choice(a=room_map, size=int(num_room_grids * density), replace=False)
 
         obst_pos_arr = []
         obst_map = np.zeros([r, c])  # 0: no obst, 1: obst

@@ -20,7 +20,12 @@ class Scenario_o_base(QuadrotorScenario):
         self.cell_centers = None
 
     def update_formation_size(self, new_formation_size):
-        pass
+        if new_formation_size != self.formation_size:
+            self.formation_size = new_formation_size if new_formation_size > 0.0 else 0.0
+            self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
+                                                layer_dist=self.layer_dist)
+            for i, env in enumerate(self.envs):
+                env.goal = self.goals[i]
 
     def generate_pos(self):
         half_room_length = self.room_dims[0] / 2
