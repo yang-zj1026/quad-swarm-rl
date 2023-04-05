@@ -62,3 +62,5 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--anneal_collision_steps', default=0.0, type=float, help='Anneal collision penalties over this many steps. Default (0.0) is no annealing')
     p.add_argument('--anneal_collision_sim_steps', default=0.0, type=float, help='Anneal simulation of collision over this many steps. Default (0.0) is no annealing')
     p.add_argument('--use_spectral_norm', default=False, type=str2bool, help="Use spectral normalization to smoothen the gradients and stabilize training. Only supports fully connected layers")
+
+    p.add_argument('--visualize_v_value', action='store_true', help="Visualize v value map")
