@@ -2,7 +2,7 @@ import time
 from unittest import TestCase
 import numpy as np
 
-from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
+from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
 from gym_art.quadrotor_multi.quadrotor_multi import QuadrotorEnvMulti
 
 

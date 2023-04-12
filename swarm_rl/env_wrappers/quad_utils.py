@@ -1,14 +1,15 @@
+from __future__ import annotations
 import copy
+import torch
 
 from sample_factory.algo.learning.learner import Learner
 from sample_factory.model.actor_critic import create_actor_critic
-import torch
+from sample_factory.algo.utils.rl_utils import calculate_discounted_sum_torch
 
-from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
-from swarm_rl.env_wrappers.additional_input import QuadsAdditionalInputWrapper
-from swarm_rl.env_wrappers.discrete_actions import QuadsDiscreteActionsWrapper
-from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper, \
-    DEFAULT_QUAD_REWARD_SHAPING_SINGLE
+
+from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
+from swarm_rl.env_wrappers.quad_replay_curriculum import CurriculumReplayWrapper
+from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
 from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
 from swarm_rl.env_wrappers.v_value_map import V_ValueMapWrapper
 
@@ -62,7 +63,10 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     )
 
     if use_replay_buffer:
-        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
+        if cfg.use_curriculum_learning:
+            env = CurriculumReplayWrapper(env, cfg.gamma, cfg.gae_lambda, cfg.replay_buffer_sample_prob)
+        else:
+            env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
@@ -100,12 +104,12 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
 
     env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing)
     env = QuadEnvCompatibility(env, render_mode=render_mode)
+
     if cfg.visualize_v_value:
         actor_critic = create_actor_critic(cfg, env.observation_space, env.action_space)
-        actor_critic.eval()
-
         device = torch.device("cpu" if cfg.device == "cpu" else "cuda")
         actor_critic.model_to_device(device)
+        actor_critic.eval()
 
         policy_id = cfg.policy_index
         name_prefix = dict(latest="checkpoint", best="best")[cfg.load_checkpoint_kind]

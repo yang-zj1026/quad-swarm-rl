@@ -90,7 +90,7 @@ class ExperienceReplayWrapper(gym.Wrapper):
         """For reset we just use the default implementation."""
         return self.env.reset()
 
-    def step(self, action):
+    def step(self, action, value_pred=None):
         obs, rewards, dones, infos = self.env.step(action)
 
         if any(dones):
