@@ -125,16 +125,15 @@ class CurriculumReplayWrapper(ExperienceReplayWrapper):
         self.replay_buffer = CurriculumReplayBuffer()
         self.curr_evt_idx = 0
 
-
         self.gamma = gamma
         self.gae_lambda = gae_lambda
 
         self.rewards = []
-        self.values = []
+        self.value_preds = []
         self.dones = []
 
         self.init_obs = None
-        self.save_to_buffer = False
+        self.saved_in_buffer = False
 
         # variables for tensorboard
         self.replayed_events = 0
@@ -150,21 +149,21 @@ class CurriculumReplayWrapper(ExperienceReplayWrapper):
         obs, rewards, dones, infos = self.env.step(action)
         if values_pred:
             self.rewards.append(rewards)
-            self.values.append(values_pred)
+            self.value_preds.append(values_pred)
             self.dones.append(dones)
 
         if any(dones):
-            if self.save_to_buffer:
+            if self.saved_in_buffer:
                 # Calculate score with the given score function
                 ep_rewards = torch.tensor(self.rewards)
                 ep_dones = torch.tensor(self.dones).float()
 
                 # since we cannot get the last value from sample factory, set it to be same as the previous one
-                self.values.append(self.values[-1])
-                values = torch.tensor(self.values)
-                valids = torch.ones_like(values).float()
+                self.value_preds.append(self.value_preds[-1])
+                value_preds = torch.tensor(self.value_preds)
+                valids = torch.ones_like(value_preds).float()
 
-                gae = gae_advantage(ep_rewards, ep_dones, values, valids, self.gamma, self.gae_lambda)
+                gae = gae_advantage(ep_rewards, ep_dones, value_preds, valids, self.gamma, self.gae_lambda)
                 score = torch.mean(gae)
 
                 if not self.env.saved_in_replay_buffer:
@@ -176,11 +175,11 @@ class CurriculumReplayWrapper(ExperienceReplayWrapper):
 
             # Reset values, rewards and dones
             self.rewards = []
-            self.values = []
+            self.value_preds = []
             self.dones = []
 
-            # Resample from replay buffer
-            obs = self.new_episode()
+            # Sample from replay buffer
+            self.init_obs = self.new_episode()
             avg_num_replayed = self.replay_buffer.avg_num_replayed()
             for i in range(len(infos)):
                 if not infos[i]["episode_extra_stats"]:
@@ -204,7 +203,7 @@ class CurriculumReplayWrapper(ExperienceReplayWrapper):
             if self.env.use_obstacles:
                 collision_flag = collision_flag or len(self.env.curr_quad_col) > 0
 
-            if collision_flag and self.env.use_replay_buffer and self.env.activate_replay_buffer and not self.save_to_buffer:
+            if collision_flag and self.env.use_replay_buffer and self.env.activate_replay_buffer and not self.saved_in_buffer:
                 self.save_to_buffer = True
 
         return obs, rewards, dones, infos
@@ -231,10 +230,11 @@ class CurriculumReplayWrapper(ExperienceReplayWrapper):
             replayed_env.collisions_per_episode = replayed_env.collisions_after_settle = 0
             replayed_env.obst_quad_collisions_per_episode = replayed_env.obst_quad_collisions_after_settle = 0
             self.env = replayed_env
+            self.saved_in_buffer = True
 
             return obs
         else:
             obs = self.env.reset()
             self.env.saved_in_replay_buffer = False
-            self.save_to_buffer = False
+            self.saved_in_buffer = False
             return obs
