@@ -1,10 +1,7 @@
 import copy
 
-from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
-from swarm_rl.env_wrappers.additional_input import QuadsAdditionalInputWrapper
-from swarm_rl.env_wrappers.discrete_actions import QuadsDiscreteActionsWrapper
-from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper, \
-    DEFAULT_QUAD_REWARD_SHAPING_SINGLE
+from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
+from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
 from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
 
 
@@ -60,10 +57,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sense_noise=sense_noise, init_random_state=True,
     )
 
-
-    if use_replay_buffer:
-        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
-
+    # Add reward shaping setting
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
     reward_shaping['quad_rewards']['quadcol_bin'] = cfg.quads_collision_reward
@@ -84,6 +78,11 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         annealing = None
 
     env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing)
+
+    # Add replay buffer
+    if use_replay_buffer:
+        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.use_curriculum_learning, cfg.gamma, cfg.gae_lambda)
+
     env = QuadEnvCompatibility(env, render_mode=render_mode)
     return env
 

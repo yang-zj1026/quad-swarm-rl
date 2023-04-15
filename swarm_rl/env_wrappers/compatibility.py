@@ -32,7 +32,7 @@ class QuadEnvCompatibility(gym.Wrapper):
         """
         return self.env.reset(), {}
 
-    def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict]:
+    def step(self, action: Any, values_pred=None) -> Tuple[Any, float, bool, bool, Dict]:
         """Steps through the environment.
 
         Args:
@@ -41,7 +41,7 @@ class QuadEnvCompatibility(gym.Wrapper):
         Returns:
             (observation, reward, terminated, truncated, info)
         """
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, done, info = self.env.step(action, values_pred)
 
         #convert_to_terminated_truncated_step_api treats done as an iterable if info is a dictionary, fails if it not iterable
         if isinstance(info, dict) and isinstance(done, bool):
