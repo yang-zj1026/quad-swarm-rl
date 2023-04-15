@@ -4,6 +4,9 @@ from copy import deepcopy
 
 import gym
 import numpy as np
+import torch
+
+from swarm_rl.env_wrappers.rl_utils import gae_advantage, score_distribution, staleness_distribution
 
 
 class ReplayBufferEvent:
@@ -11,6 +14,9 @@ class ReplayBufferEvent:
         self.env = env
         self.obs = obs
         self.num_replayed = 0
+        self.score = None
+        self.last_played_episode = None
+        self.env_tick = None
 
 
 class ReplayBuffer:
@@ -20,6 +26,9 @@ class ReplayBuffer:
         self.cp_step_size_freq = self.cp_step_size_sec * self.control_frequency
         self.buffer_idx = 0
         self.buffer = deque([], maxlen=buffer_size)
+
+        self.beta = 0.1  # temperature in computing score distribution
+        self.rho = 0.1  # staleness coefficient in mixing two distributions
 
     def write_cp_to_buffer(self, env, obs):
         """
@@ -33,25 +42,42 @@ class ReplayBuffer:
             self.buffer.append(evt)
         else:
             self.buffer[self.buffer_idx] = evt
-        print(f"Added new collision event to buffer at {self.buffer_idx}")
+        curr_event_idx = self.buffer_idx
+        print(f"Added new collision event to buffer at idx {self.buffer_idx}")
         self.buffer_idx = (self.buffer_idx + 1) % self.buffer.maxlen
+        return curr_event_idx
 
-    def sample_event(self):
+    def sample_event(self, use_curriculum=False, episode_counter=None):
         """
         Sample an event to replay
         """
-        idx = random.randint(0, len(self.buffer) - 1)
+        if use_curriculum:
+            if not episode_counter:
+                raise ValueError("Episode counter cannot be none when sampling based on PLR")
+
+            # Sample events based on the mixture of two distributions
+            p_score = self.get_score_distribution()
+            p_staleness = self.get_staleness_distribution(episode_counter)
+            p_replay = (1 - self.rho) * p_score + self.rho * p_staleness
+
+            idx = np.random.choice(range(len(self.buffer)), p=p_replay)
+        else:
+            idx = random.randint(0, len(self.buffer) - 1)
+
         print(f'Replaying event at idx {idx}')
         self.buffer[idx].num_replayed += 1
-        return self.buffer[idx]
+        return self.buffer[idx], idx
 
     def cleanup(self):
         new_buffer = deque([], maxlen=self.buffer.maxlen)
         for event in self.buffer:
             if event.num_replayed < 10:
                 new_buffer.append(event)
-
         self.buffer = new_buffer
+        if len(new_buffer) == self.buffer.maxlen:
+            self.buffer_idx = self.buffer.maxlen - 1
+        else:
+            self.buffer_idx = len(new_buffer)
 
     def avg_num_replayed(self):
         replayed_stats = [e.num_replayed for e in self.buffer]
@@ -59,12 +85,38 @@ class ReplayBuffer:
             return 0
         return np.mean(replayed_stats)
 
+    def update_event(self, idx, score, episode_counter, env_tick):
+        """
+        Update the score of given event
+        """
+        if not score:
+            raise ValueError("Score cannot be None")
+        event = self.buffer[idx]
+        event.score = score
+        event.last_played_episode = episode_counter
+        event.env_tick = env_tick
+
     def __len__(self):
         return len(self.buffer)
 
+    def get_score_distribution(self):
+        """
+        Calculate the probabilities based on scores
+        """
+        scores = np.array([evt.score for evt in self.buffer])
+        # if None in scores:
+        #     raise ValueError("Episode score should not be None")
+        scores_dist = score_distribution(scores, self.beta)
+        return scores_dist
+
+    def get_staleness_distribution(self, episode_counter):
+        last_replayed_eps = np.array([evt.last_played_episode for evt in self.buffer])
+        staleness_dist = staleness_distribution(last_replayed_eps, episode_counter)
+        return staleness_dist
+
 
 class ExperienceReplayWrapper(gym.Wrapper):
-    def __init__(self, env, replay_buffer_sample_prob=0.0):
+    def __init__(self, env, replay_buffer_sample_prob=0.0, use_curriculum=False, gamma=None, gae_lambda=None):
         super().__init__(env)
         self.replay_buffer = ReplayBuffer(env.envs[0].control_freq)
         self.replay_buffer_sample_prob = replay_buffer_sample_prob
@@ -79,6 +131,20 @@ class ExperienceReplayWrapper(gym.Wrapper):
         self.replayed_events = 0
         self.episode_counter = 0
 
+        self.use_curriculum = use_curriculum
+        if self.use_curriculum:
+            # store rewards, value predictions and env ticks to calculate GAE
+            self.rewards = []
+            self.values_pred = []
+            self.dones = []
+            self.curr_event_ids = []
+            self.event_ticks = []
+            self.saved_in_buffer = False  # True if new events are saved to replay buffer
+            self.gamma = gamma
+            self.gae_lambda = gae_lambda
+
+        self.from_buffer = False
+
     def save_checkpoint(self, obs):
         """
         Save a checkpoint every X steps so that we may load it later if a collision was found. This is NOT the same as the buffer
@@ -90,10 +156,45 @@ class ExperienceReplayWrapper(gym.Wrapper):
         """For reset we just use the default implementation."""
         return self.env.reset()
 
-    def step(self, action, value_pred=None):
+    def step(self, action, values_pred=None):
         obs, rewards, dones, infos = self.env.step(action)
+        if values_pred and self.use_curriculum:
+            self.rewards.append(rewards)
+            self.values_pred.append(values_pred)
+            self.dones.append(dones)
 
         if any(dones):
+            if self.use_curriculum:
+                if self.env.activate_replay_buffer:
+                    # Calculate score with the given score function
+                    ep_rewards = torch.tensor(self.rewards)
+                    ep_dones = torch.tensor(self.dones).float()
+
+                    # since we cannot get the last value from sample factory, set it to be same as the previous one
+                    self.values_pred.append(self.values_pred[-1])
+                    values_pred = torch.tensor(self.values_pred)
+                    valids = torch.ones_like(values_pred).float()
+
+                    gae = gae_advantage(ep_rewards, ep_dones, values_pred, valids, self.gamma, self.gae_lambda)
+
+                    # Calculate score for each event
+                    for event_idx, env_tick in zip(self.curr_event_ids, self.event_ticks):
+                        traj_gae = gae[env_tick:]
+                        traj_score = torch.mean(traj_gae)
+                        # Update event info
+                        self.replay_buffer.update_event(event_idx, traj_score.item(), self.episode_counter, env_tick)
+
+                # Reset
+                self.rewards = []
+                self.values_pred = []
+                self.dones = []
+                self.curr_event_ids = []
+                self.event_ticks = []
+
+            # Cleanup replay buffer after each episode ends
+            self.replay_buffer.cleanup()
+
+            # Sample from replay buffer
             obs = self.new_episode()
             for i in range(len(infos)):
                 if not infos[i]["episode_extra_stats"]:
@@ -110,6 +211,8 @@ class ExperienceReplayWrapper(gym.Wrapper):
         else:
             if self.env.use_replay_buffer and self.env.activate_replay_buffer and not self.env.saved_in_replay_buffer \
                     and self.env.envs[0].tick % self.replay_buffer.cp_step_size_freq == 0:
+                # Save a deepcopy of current env, so that we can add a copy of this episode once again
+                # if another collision occurs
                 self.save_checkpoint(obs)
 
             collision_flag = self.env.last_step_unique_collisions.any()
@@ -128,10 +231,13 @@ class ExperienceReplayWrapper(gym.Wrapper):
                         raise IndexError
                     else:
                         env, obs = self.episode_checkpoints[-steps_ago]
-                        self.replay_buffer.write_cp_to_buffer(env, obs)
-                        self.env.collision_occurred = False  # this allows us to add a copy of this episode to the buffer once again if another collision happens
+                        curr_event_idx = self.replay_buffer.write_cp_to_buffer(env, obs)
 
                         self.last_tick_added_to_buffer = self.env.envs[0].tick
+                        if self.use_curriculum:
+                            self.curr_event_ids.append(curr_event_idx)
+                            self.event_ticks.append(env.envs[0].tick)
+                        self.saved_in_buffer = True
 
         return obs, rewards, dones, infos
 
@@ -147,7 +253,7 @@ class ExperienceReplayWrapper(gym.Wrapper):
         if np.random.uniform(0, 1) < self.replay_buffer_sample_prob and self.replay_buffer and self.env.activate_replay_buffer \
                 and len(self.replay_buffer) > 0:
             self.replayed_events += 1
-            event = self.replay_buffer.sample_event()
+            event, event_idx = self.replay_buffer.sample_event(self.use_curriculum, self.episode_counter)
             env = event.env
             obs = event.obs
             replayed_env = deepcopy(env)
@@ -158,10 +264,18 @@ class ExperienceReplayWrapper(gym.Wrapper):
             replayed_env.obst_quad_collisions_per_episode = replayed_env.obst_quad_collisions_after_settle = 0
             self.env = replayed_env
 
-            self.replay_buffer.cleanup()
+            self.saved_in_buffer = True
 
+            # Since we replay this episode, env tick should be set as 0 or the GAE may be wrong
+            self.curr_event_ids.append(event_idx)
+            self.event_ticks.append(0)
+
+            self.from_buffer = True
             return obs
         else:
             obs = self.env.reset()
             self.env.saved_in_replay_buffer = False
+            self.saved_in_buffer = False
+
+            # self.from_buffer = False
             return obs

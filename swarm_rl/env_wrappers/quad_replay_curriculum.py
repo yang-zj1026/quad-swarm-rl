@@ -5,19 +5,9 @@ from copy import deepcopy
 import gym
 import numpy as np
 import torch
-from torch import Tensor
 
 from swarm_rl.env_wrappers.quad_experience_replay import ReplayBuffer, ExperienceReplayWrapper
-
-from sample_factory.algo.utils.rl_utils import calculate_discounted_sum_torch
-
-
-@torch.jit.script
-def gae_advantage(rewards: Tensor, dones: Tensor, values: Tensor, valids: Tensor, gamma: float, gae_lambda: float):
-    # section 3 in GAE paper: calculating advantages
-    deltas = (rewards - values[:-1]) * valids[:-1] + (1 - dones) * (gae_lambda * values[1:] * valids[1:])
-    advantages = calculate_discounted_sum_torch(deltas, dones, valids[:-1], gamma * gae_lambda)
-    return advantages
+from swarm_rl.env_wrappers.rl_utils import gae_advantage, score_distribution, staleness_distribution
 
 
 class CurriculumReplayBufferEvent:
@@ -34,8 +24,8 @@ class CurriculumReplayBuffer:
         self.buffer_idx = 0
         self.buffer = deque([], maxlen=buffer_size)
 
-        self.beta = 0.1  # temperature in computing score distribution
-        self.rho = 0.1  # staleness coefficient in mixing two distributions
+        self.beta = beta  # temperature in computing score distribution
+        self.rho = rho  # staleness coefficient in mixing two distributions
 
     def write_cp_to_buffer(self, env, obs, score, ep_counter):
         """
@@ -58,8 +48,8 @@ class CurriculumReplayBuffer:
         Sample an event according to the mixture of score distribution and staleness distribution.
         See https://arxiv.org/pdf/2010.03934.pdf for more details
         """
-        p_score = self.score_distribution()
-        p_staleness = self.staleness_distribution(episode_counter)
+        p_score = self.get_score_distribution()
+        p_staleness = self.get_staleness_distribution(episode_counter)
         p_replay = (1 - self.rho) * p_score + self.rho * p_staleness
 
         # Sample events based on the mixture of two distributions
@@ -91,21 +81,18 @@ class CurriculumReplayBuffer:
         event.score = score
         event.last_replayed = episode_counter
 
-    def score_distribution(self):
+    def get_score_distribution(self):
         """
         Calculate the probabilities based on scores
         """
         scores = np.array([evt.score for evt in self.buffer])
-        order = scores.argsort()
-        ranks = order.argsort()
-        desc_ranks = len(scores) - ranks
-        h_s = (1 / desc_ranks) ** (1 / self.beta)
-        return h_s / np.sum(h_s)
+        scores_dist = score_distribution(scores, self.beta)
+        return scores_dist
 
-    def staleness_distribution(self, episode_counter):
+    def get_staleness_distribution(self, episode_counter):
         last_replayed_eps = np.array([evt.last_replayed for evt in self.buffer])
-        staleness = episode_counter - last_replayed_eps
-        return staleness / np.sum(staleness)
+        staleness_dist = staleness_distribution(last_replayed_eps, episode_counter)
+        return staleness_dist
 
     def avg_score(self):
         scores = [event.score for event in self.buffer]

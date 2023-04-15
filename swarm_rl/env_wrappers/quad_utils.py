@@ -4,8 +4,6 @@ import torch
 
 from sample_factory.algo.learning.learner import Learner
 from sample_factory.model.actor_critic import create_actor_critic
-from sample_factory.algo.utils.rl_utils import calculate_discounted_sum_torch
-
 
 from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
 from swarm_rl.env_wrappers.quad_replay_curriculum import CurriculumReplayWrapper
@@ -63,10 +61,10 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     )
 
     if use_replay_buffer:
-        if cfg.use_curriculum_learning:
-            env = CurriculumReplayWrapper(env, cfg.gamma, cfg.gae_lambda, cfg.replay_buffer_sample_prob)
-        else:
-            env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
+        # if cfg.use_curriculum_learning:
+        #     env = CurriculumReplayWrapper(env, cfg.gamma, cfg.gae_lambda, cfg.replay_buffer_sample_prob)
+        # else:
+        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.use_curriculum_learning, cfg.gamma, cfg.gae_lambda)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
