@@ -1,8 +1,12 @@
 import copy
+import torch
 
 from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
+from sample_factory.algo.learning.learner import Learner
+from sample_factory.model.actor_critic import create_actor_critic
 from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
+from swarm_rl.env_wrappers.v_value_map import V_ValueMapWrapper
 
 
 class AnnealSchedule:
@@ -84,6 +88,21 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.use_curriculum_learning, cfg.gamma, cfg.gae_lambda)
 
     env = QuadEnvCompatibility(env, render_mode=render_mode)
+
+    if cfg.visualize_v_value:
+        actor_critic = create_actor_critic(cfg, env.observation_space, env.action_space)
+        actor_critic.eval()
+
+        device = torch.device("cpu" if cfg.device == "cpu" else "cuda")
+        actor_critic.model_to_device(device)
+
+        policy_id = cfg.policy_index
+        name_prefix = dict(latest="checkpoint", best="best")[cfg.load_checkpoint_kind]
+        checkpoints = Learner.get_checkpoints(Learner.checkpoint_dir(cfg, policy_id), f"{name_prefix}_*")
+        checkpoint_dict = Learner.load_checkpoint(checkpoints, device)
+        actor_critic.load_state_dict(checkpoint_dict["model"])
+        env = V_ValueMapWrapper(env, actor_critic, render_mode=render_mode)
+
     return env
 
 
