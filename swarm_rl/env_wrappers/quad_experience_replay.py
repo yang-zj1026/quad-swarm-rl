@@ -180,16 +180,16 @@ class ExperienceReplayWrapper(gym.Wrapper):
                     # Calculate score for each event
                     for event_idx, env_tick in zip(self.curr_event_ids, self.event_ticks):
                         traj_gae = gae[env_tick:]
-                        traj_score = torch.mean(traj_gae)
+                        traj_score = torch.mean(torch.abs(traj_gae))
                         # Update event info
                         self.replay_buffer.update_event(event_idx, traj_score.item(), self.episode_counter, env_tick)
 
-            # Reset
-            self.rewards = []
-            self.values_pred = []
-            self.dones = []
-            self.curr_event_ids = []
-            self.event_ticks = []
+                # Reset
+                self.rewards = []
+                self.values_pred = []
+                self.dones = []
+                self.curr_event_ids = []
+                self.event_ticks = []
 
             # Cleanup replay buffer after each episode ends
             self.replay_buffer.cleanup()
