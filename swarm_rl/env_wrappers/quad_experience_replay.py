@@ -27,7 +27,7 @@ class ReplayBuffer:
         self.buffer_idx = 0
         self.buffer = deque([], maxlen=buffer_size)
 
-        self.beta = 0.1  # temperature in computing score distribution
+        self.beta = 1.0  # temperature in computing score distribution
         self.rho = 0.1  # staleness coefficient in mixing two distributions
 
     def write_cp_to_buffer(self, env, obs):
@@ -264,9 +264,10 @@ class ExperienceReplayWrapper(gym.Wrapper):
             replayed_env.obst_quad_collisions_per_episode = replayed_env.obst_quad_collisions_after_settle = 0
             self.env = replayed_env
 
-            # Since we replay this episode, env tick should be set to 0 otherwise the score may be wrong
-            self.curr_event_ids.append(event_idx)
-            self.event_ticks.append(0)
+            if self.use_curriculum:
+                # Since we replay this episode, env tick should be set to 0 otherwise the score may be wrong
+                self.curr_event_ids.append(event_idx)
+                self.event_ticks.append(0)
 
             return obs
         else:
