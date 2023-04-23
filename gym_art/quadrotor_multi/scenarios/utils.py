@@ -14,7 +14,9 @@ QUADS_MODE_LIST_SINGLE = ['static_same_goal', 'static_diff_goal',  # static form
                           'dynamic_same_goal',  # dynamic formations
                           ]
 
-QUADS_MODE_LIST_OBSTACLES = ['o_random', 'o_static_same_goal']
+QUADS_MODE_LIST_OBSTACLES = ['o_random', 'o_static_same_goal', 'o_static_diff_goal',  # static formations
+                             'o_dynamic_same_goal', 'o_dynamic_diff_goal'  # dynamics formations
+                             ]
 
 QUADS_MODE_LIST_OBSTACLES_SINGLE = ['o_random']
 
@@ -39,7 +41,10 @@ QUADS_PARAMS_DICT = {
     # Obstacles
     'o_random': [['circle_horizontal'], [0.0, 0.0]],
     'o_static_same_goal': [['circle_horizontal'], [0.0, 0.0]],
+    'o_dynamic_same_goal': [['circle_horizontal'], [0.0, 0.0]],
     'o_swap_goals': [QUADS_FORMATION_LIST, [8 * quad_arm_size, 16 * quad_arm_size]],
+    'o_static_diff_goal': [QUADS_FORMATION_LIST, [5 * quad_arm_size, 10 * quad_arm_size]],
+    'o_dynamic_diff_goal': [QUADS_FORMATION_LIST, [5 * quad_arm_size, 10 * quad_arm_size]],
 }
 
 

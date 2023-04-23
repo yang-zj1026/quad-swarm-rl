@@ -11,6 +11,8 @@ class Scenario_o_base(QuadrotorScenario):
         self.room_dims = room_dims
         self.duration_step = 0
         self.quads_mode = quads_mode
+
+        self.cell_centers = None
         self.obstacle_map = None
         self.free_space = []
 
