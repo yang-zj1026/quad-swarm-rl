@@ -9,7 +9,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         super().__init__(quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
                          quads_formation_size)
         # teleport every [4.0, 6.0] secs
-        duration_time = 5.0
+        duration_time = 6.0
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
 
     def update_formation_size(self, new_formation_size):
@@ -19,7 +19,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         tick = self.envs[0].tick
         if tick % self.control_step_for_sec == 0 and tick > 0:
             box_size = self.envs[0].box
-            self.formation_center = self.generate_pos_obst_map()
+            self.formation_center = self.generate_pos_obst_map(check_surroundings=True)
             self.formation_center[2] = max(0.25, self.formation_center[2])
 
             self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
@@ -49,7 +49,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         # Reset formation and related parameters
         self.update_formation_and_relate_param()
 
-        self.formation_center = self.generate_pos_obst_map()
+        self.formation_center = self.generate_pos_obst_map(check_surroundings=True)
 
         # Regenerate goals, we don't have to assign goals to the envs,
         # the reset function in quadrotor_multi.py would do that

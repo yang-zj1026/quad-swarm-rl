@@ -32,7 +32,7 @@ class Scenario_o_static_diff_goal(Scenario_o_base):
         # Reset formation and related parameters
         self.update_formation_and_relate_param()
 
-        self.formation_center = self.generate_pos_obst_map()
+        self.formation_center = self.generate_pos_obst_map(check_surroundings=True)
 
         # Regenerate goals, we don't have to assign goals to the envs,
         # the reset function in quadrotor_multi.py would do that

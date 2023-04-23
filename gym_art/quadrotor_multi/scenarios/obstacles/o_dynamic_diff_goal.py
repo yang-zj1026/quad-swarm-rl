@@ -24,9 +24,8 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
     def step(self, infos, rewards):
         tick = self.envs[0].tick
         if tick % self.control_step_for_sec == 0 and tick > 0:
-            box_size = self.envs[0].box
 
-            self.formation_center = self.generate_pos_obst_map()
+            self.formation_center = self.generate_pos_obst_map(check_surroundings=True)
             self.update_goals()
 
             # Update goals to envs
@@ -59,19 +58,6 @@ class Scenario_o_dynamic_diff_goal(Scenario_o_base):
         self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
                                          layer_dist=self.layer_dist)
         np.random.shuffle(self.goals)
-
-    def generate_pos_obst_map(self):
-        idx = np.random.choice(a=len(self.free_space), replace=True)
-        x, y = self.free_space[idx][0], self.free_space[idx][1]
-
-        z_list_start = np.random.uniform(low=1.0, high=3.0)
-        xy_noise = np.random.uniform(low=-0.5, high=0.5, size=2)
-
-        length = self.obstacle_map.shape[0]
-        index = x + (length * y)
-        pos_x, pos_y = self.cell_centers[index]
-
-        return np.array([pos_x + xy_noise[0], pos_y + xy_noise[1], z_list_start])
 
     # def check_surroundings(self, row, col):
     #     length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
