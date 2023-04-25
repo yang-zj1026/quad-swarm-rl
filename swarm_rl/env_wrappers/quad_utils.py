@@ -63,7 +63,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
 
     # Add replay buffer
     if use_replay_buffer:
-        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.use_curriculum_learning, cfg.gamma, cfg.gae_lambda)
+        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
 
     # Add reward shaping setting
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
