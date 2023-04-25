@@ -75,12 +75,17 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface):
 
             if dones_multi[i]:
                 true_reward = self.cumulative_rewards[i]['rewraw_main']
+                # Set true objective for PBT
+                true_objective = self.cumulative_rewards[i]['rewraw_main']
                 true_reward_consider_collisions = True
                 if true_reward_consider_collisions:
                     # we ideally want zero collisions, so collisions between quads are given very high weight
-                    true_reward += 1000 * self.cumulative_rewards[i].get('rewraw_quadcol', 0)
+                    true_reward += 10 * self.cumulative_rewards[i].get('rewraw_quadcol', 0)
+                    true_objective += 10 * self.cumulative_rewards[i].get('rewraw_quadcol', 0)
+                    true_objective += 10 * self.cumulative_rewards[i].get("rewraw_quadcol_obstacle", 0)
 
                 info['true_reward'] = true_reward
+                info['true_objective'] = true_objective
                 self.cumulative_rewards[i]['rewraw_main'] = true_reward
                 if 'episode_extra_stats' not in info:
                     info['episode_extra_stats'] = dict()
