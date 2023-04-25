@@ -379,7 +379,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         return obs
 
-    def step(self, actions):
+    def step(self, actions, values_pred=None):
         obs, rewards, dones, infos = [], [], [], []
 
         for i, a in enumerate(actions):

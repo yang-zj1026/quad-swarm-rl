@@ -14,8 +14,9 @@ QUADS_MODE_LIST_SINGLE = ['static_same_goal', 'static_diff_goal',  # static form
                           'dynamic_same_goal',  # dynamic formations
                           ]
 
-QUADS_MODE_LIST_OBSTACLES = ['o_random', 'o_static_same_goal', 'o_static_diff_goal',  # static formations
-                             'o_dynamic_same_goal', 'o_dynamic_diff_goal'  # dynamics formations
+QUADS_MODE_LIST_OBSTACLES = ['o_random', 'o_static_same_goal',
+                             #'o_static_diff_goal',  # static formations
+                             #'o_dynamic_same_goal', 'o_dynamic_diff_goal'  # dynamics formations
                              ]
 
 QUADS_MODE_LIST_OBSTACLES_SINGLE = ['o_random']
