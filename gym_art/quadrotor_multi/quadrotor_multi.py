@@ -25,7 +25,7 @@ class QuadrotorEnvMulti(gym.Env):
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
 
                  # Obstacle
-                 use_obstacles, obst_density, obst_size, obst_spawn_area,
+                 use_obstacles, obst_density, obst_size, obst_spawn_area, obst_resolution,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, use_numba, quads_mode, room_dims, use_replay_buffer, quads_view_mode,
@@ -124,7 +124,8 @@ class QuadrotorEnvMulti(gym.Env):
             self.num_obstacles = int(obst_density * obst_spawn_area[0] * obst_spawn_area[1])
             self.obst_map = None
             self.obstacle_size = obst_size
-            self.obstacles = MultiObstacles(obstacle_size=self.obstacle_size, quad_radius=self.quad_arm)
+            self.obstacles = MultiObstacles(obstacle_size=self.obstacle_size, quad_radius=self.quad_arm,
+                                            resolution=obst_resolution)
 
         # Scenarios
         self.quads_mode = quads_mode

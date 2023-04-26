@@ -41,7 +41,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         collision_falloff_radius=cfg.quads_collision_falloff_radius,
         # Obstacle
         use_obstacles=cfg.quads_use_obstacles, obst_density=cfg.quads_obst_density, obst_size=cfg.quads_obst_size,
-        obst_spawn_area=cfg.quads_obst_spawn_area,
+        obst_spawn_area=cfg.quads_obst_spawn_area, obst_resolution=cfg.quads_obst_resolution,
 
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash,
