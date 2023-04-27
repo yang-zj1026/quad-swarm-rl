@@ -37,10 +37,10 @@ class Scenario_o_random(Scenario_o_base):
 
         for i in range(self.num_agents):
             self.start_point.append(self.generate_pos_obst_map())
-            self.end_point.append(self.generate_pos_obst_map())
+            # self.end_point.append(self.generate_pos_obst_map())
 
         self.start_point = np.array(self.start_point)
-        self.end_point = np.array(self.end_point)
+        self.end_point = self.start_point
 
         self.duration_step = int(np.random.uniform(low=2.0, high=4.0) * self.envs[0].control_freq)
         self.update_formation_and_relate_param()
