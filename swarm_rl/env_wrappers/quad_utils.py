@@ -1,11 +1,22 @@
 import copy
+<<<<<<< HEAD
 import torch
 
 from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
 from sample_factory.algo.learning.learner import Learner
 from sample_factory.model.actor_critic import create_actor_critic
+=======
+
+import numpy as np
+import torch
+from sample_factory.algo.learning.learner import Learner
+from sample_factory.model.actor_critic import create_actor_critic
+
+from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
+>>>>>>> 40e239c16311c960b2675a3c2fea8d1f9df5b502
 from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
+from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
 from swarm_rl.env_wrappers.v_value_map import V_ValueMapWrapper
 
 
@@ -32,6 +43,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     rew_coeff = DEFAULT_QUAD_REWARD_SHAPING['quad_rewards']
     use_replay_buffer = cfg.replay_buffer_sample_prob > 0.0
 
+    obstacle_scan_range = np.radians(cfg.quads_obstacle_scan_range)
+
     env = QuadrotorEnvMulti(
         num_agents=cfg.quads_num_agents, ep_time=cfg.quads_episode_duration, rew_coeff=rew_coeff,
         obs_repr=cfg.quads_obs_repr,
@@ -41,7 +54,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         collision_falloff_radius=cfg.quads_collision_falloff_radius,
         # Obstacle
         use_obstacles=cfg.quads_use_obstacles, obst_density=cfg.quads_obst_density, obst_size=cfg.quads_obst_size,
-        obst_spawn_area=cfg.quads_obst_spawn_area, obst_resolution=cfg.quads_obst_resolution,
+        obst_spawn_area=cfg.quads_obst_spawn_area, obst_obs_type=cfg.quads_obstacle_obs_type, obst_resolution=cfg.quads_obst_resolution,
+        obst_scan_range=obstacle_scan_range, obst_ray_num=cfg.quads_obstacle_ray_num,
 
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash,
@@ -85,8 +99,13 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     else:
         annealing = None
 
+<<<<<<< HEAD
     env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing)
 
+=======
+    env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing,
+                                    with_pbt=cfg.with_pbt)
+>>>>>>> 40e239c16311c960b2675a3c2fea8d1f9df5b502
     env = QuadEnvCompatibility(env, render_mode=render_mode)
 
     if cfg.visualize_v_value:
