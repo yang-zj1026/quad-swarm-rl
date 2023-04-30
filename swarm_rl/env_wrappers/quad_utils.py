@@ -1,20 +1,11 @@
 import copy
-<<<<<<< HEAD
-import torch
-
-from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
-from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
-from sample_factory.algo.learning.learner import Learner
-from sample_factory.model.actor_critic import create_actor_critic
-=======
 
 import numpy as np
 import torch
 from sample_factory.algo.learning.learner import Learner
 from sample_factory.model.actor_critic import create_actor_critic
 
-from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
->>>>>>> 40e239c16311c960b2675a3c2fea8d1f9df5b502
+from swarm_rl.env_wrappers.quad_experience_replay import ExperienceReplayWrapper
 from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
 from swarm_rl.env_wrappers.v_value_map import V_ValueMapWrapper
@@ -99,13 +90,9 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     else:
         annealing = None
 
-<<<<<<< HEAD
-    env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing)
-
-=======
     env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing,
                                     with_pbt=cfg.with_pbt)
->>>>>>> 40e239c16311c960b2675a3c2fea8d1f9df5b502
+
     env = QuadEnvCompatibility(env, render_mode=render_mode)
 
     if cfg.visualize_v_value:
