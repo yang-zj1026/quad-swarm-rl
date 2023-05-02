@@ -153,7 +153,7 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             nonlinearity(cfg)
         )
         self.neighbor_embed_layer = nn.Sequential(
-            fc_layer(self.all_neighbor_obs_dim, fc_encoder_layer),
+            fc_layer(self.all_neighbor_obs_dim + self.self_obs_dim, fc_encoder_layer),
             nonlinearity(cfg),
             fc_layer(fc_encoder_layer, fc_encoder_layer),
             nonlinearity(cfg)
@@ -164,7 +164,7 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE[cfg.quads_obstacle_obs_type]
 
         self.obstacle_embed_layer = nn.Sequential(
-            fc_layer(self.obstacle_obs_dim, fc_encoder_layer),
+            fc_layer(self.obstacle_obs_dim + self.self_obs_dim, fc_encoder_layer),
             nonlinearity(cfg),
             fc_layer(fc_encoder_layer, fc_encoder_layer),
             nonlinearity(cfg)
@@ -187,7 +187,9 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         batch_size = obs.shape[0]
         obs_self = obs[:, :self.self_obs_dim]
         obs_neighbor = obs[:, self.self_obs_dim: self.self_obs_dim + self.all_neighbor_obs_dim]
+        obs_neighbor = torch.concat([obs_self, obs_neighbor], dim=-1)
         obs_obstacle = obs[:, self.self_obs_dim + self.all_neighbor_obs_dim:]
+        obs_obstacle = torch.concat([obs_self, obs_obstacle], dim=-1)
 
         self_embed = self.self_embed_layer(obs_self)
         neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
