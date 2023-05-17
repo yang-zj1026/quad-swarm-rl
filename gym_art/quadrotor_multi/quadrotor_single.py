@@ -31,11 +31,19 @@ GRAV = 9.81  # default gravitational constant
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, on_floor=False):
+def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, pos_prev, on_floor=False):
     # Distance to the goal
     dist = np.linalg.norm(goal - dynamics.pos)
+    # cost_pos_raw = dist
+    # cost_pos = rew_coeff["pos"] * cost_pos_raw
     cost_pos_raw = dist
-    cost_pos = rew_coeff["pos"] * cost_pos_raw
+    cost_pos = 0.0 * rew_coeff["pos"] * cost_pos_raw
+
+    pre_dist = np.linalg.norm(goal - pos_prev)
+    pos_diff = pre_dist - dist
+    cost_pos_diff_raw = pos_diff
+
+    cost_pos_diff = 200 * cost_pos_diff_raw
 
     # Penalize amount of control effort
     cost_effort_raw = np.linalg.norm(action)
@@ -219,6 +227,7 @@ class QuadrotorSingle:
         self.box_scale = 1.0
         self.goal = None
         self.spawn_point = None
+        self.pos_pre = None
 
         # Neighbor info
         self.num_agents = num_agents
@@ -347,7 +356,10 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
-            rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor)
+            rew_coeff=self.rew_coeff, action_prev=self.actions[1], pos_prev=self.pos_pre,
+            on_floor=self.dynamics.on_floor)
+
+        self.pos_pre = copy.deepcopy(self.dynamics.pos)
 
         self.tick += 1
         done = self.tick > self.ep_len
@@ -438,6 +450,7 @@ class QuadrotorSingle:
         self.dynamics.reset()
         self.dynamics.on_floor = False
         self.dynamics.crashed_floor = self.dynamics.crashed_wall = self.dynamics.crashed_ceiling = False
+        self.pos_pre = copy.deepcopy(self.dynamics.pos)
 
         # Reseting some internal state (counters, etc)
         self.tick = 0
