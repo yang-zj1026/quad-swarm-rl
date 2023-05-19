@@ -31,11 +31,12 @@ GRAV = 9.81  # default gravitational constant
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, pos_prev, on_floor=False):
+def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, pos_prev, min_dist, on_floor=False):
     # Distance to the goal
     dist = np.linalg.norm(goal - dynamics.pos)
-    # cost_pos_raw = dist
-    # cost_pos = rew_coeff["pos"] * cost_pos_raw
+    cost_pos_diff_2_raw = np.max([0.0, min_dist - dist])
+    cost_pos_diff_2 = -1.0 * cost_pos_diff_2_raw
+
     cost_pos_raw = dist
     cost_pos = 0.0 * rew_coeff["pos"] * cost_pos_raw
 
@@ -43,7 +44,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     pos_diff = pre_dist - dist
     cost_pos_diff_raw = -1.0 * pos_diff
 
-    cost_pos_diff = 200 * cost_pos_diff_raw
+    cost_pos_diff = 0.0 * cost_pos_diff_raw
 
     # Penalize amount of control effort
     cost_effort_raw = np.linalg.norm(action)
@@ -66,7 +67,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_crash = rew_coeff["crash"] * cost_crash_raw
 
     reward = -dt * np.sum([
-        cost_pos,
+        cost_pos_diff_2,
         cost_effort,
         cost_crash,
         cost_orient,
@@ -74,8 +75,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     ])
 
     rew_info = {
-        "rew_main": -cost_pos,
-        'rew_pos': -cost_pos,
+        "rew_main": -cost_pos_diff_2,
+        'rew_pos': -cost_pos_diff_2,
         'rew_action': -cost_effort,
         'rew_crash': -cost_crash,
         "rew_orient": -cost_orient,
@@ -83,6 +84,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
+        "rewraw_pos_diff": -cost_pos_diff_raw,
+        "rewraw_pos_diff_2": -cost_pos_diff_2_raw,
         'rewraw_action': -cost_effort_raw,
         'rewraw_crash': -cost_crash_raw,
         "rewraw_orient": -cost_orient_raw,
@@ -228,6 +231,7 @@ class QuadrotorSingle:
         self.goal = None
         self.spawn_point = None
         self.pos_pre = None
+        self.dist_to_goal_min = None
 
         # Neighbor info
         self.num_agents = num_agents
@@ -356,10 +360,11 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
-            rew_coeff=self.rew_coeff, action_prev=self.actions[1], pos_prev=self.pos_pre,
+            rew_coeff=self.rew_coeff, action_prev=self.actions[1], pos_prev=self.pos_pre, min_dist=self.dist_to_goal_min,
             on_floor=self.dynamics.on_floor)
 
         self.pos_pre = copy.deepcopy(self.dynamics.pos)
+        self.dist_to_goal_min = np.min([np.linalg.norm(self.goal - self.dynamics.pos), self.dist_to_goal_min])
 
         self.tick += 1
         done = self.tick > self.ep_len
@@ -451,6 +456,7 @@ class QuadrotorSingle:
         self.dynamics.on_floor = False
         self.dynamics.crashed_floor = self.dynamics.crashed_wall = self.dynamics.crashed_ceiling = False
         self.pos_pre = copy.deepcopy(self.dynamics.pos)
+        self.dist_to_goal_min = np.linalg.norm(self.goal - self.dynamics.pos)
 
         # Reseting some internal state (counters, etc)
         self.tick = 0
