@@ -41,7 +41,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 
     pre_dist = np.linalg.norm(goal - pos_prev)
     pos_diff = pre_dist - dist
-    cost_pos_diff_raw = pos_diff
+    cost_pos_diff_raw = -1.0 * pos_diff
 
     cost_pos_diff = 200 * cost_pos_diff_raw
 
