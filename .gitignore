@@ -13,3 +13,5 @@ _results
 *.cprof
 *.egg-info/
 train_dir/
+glas/plots/
+glas/instances/
