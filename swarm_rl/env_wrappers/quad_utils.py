@@ -64,7 +64,9 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         dynamics_randomize_every=dyn_randomize_every, dynamics_change=dynamics_change, dyn_sampler_1=sampler_1,
         sense_noise=sense_noise, init_random_state=False,
         # V Value Visualization
-        visualize_v_value=cfg.visualize_v_value
+        visualize_v_value=cfg.visualize_v_value,
+        # GLAS
+        use_glas=True,
     )
 
     if use_replay_buffer:

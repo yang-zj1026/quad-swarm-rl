@@ -2,10 +2,17 @@ import copy
 import time
 from collections import deque
 from copy import deepcopy
+import torch
 
 import gym
 import numpy as np
+from scipy import spatial
 
+from glas.env import Agent
+from glas.learning.empty_net import Empty_Net
+from glas.model import Empty_Net_wAPF
+from glas.params import DoubleIntegratorParam, SingleIntegratorParam
+from glas.utils import rot_mat_2d
 from gym_art.quadrotor_multi.aerodynamics.downwash import perform_downwash
 from gym_art.quadrotor_multi.collisions.obstacles import perform_collision_with_obstacle
 from gym_art.quadrotor_multi.collisions.quadrotors import calculate_collision_matrix, \
@@ -39,7 +46,10 @@ class QuadrotorEnvMulti(gym.Env):
                  sense_noise, init_random_state,
 
                  # V Value Visualization
-                 visualize_v_value
+                 visualize_v_value,
+
+                 # GLAS Integration
+                 use_glas, glas_integrator='single_integrator',
                  ):
         super().__init__()
 
@@ -66,12 +76,14 @@ class QuadrotorEnvMulti(gym.Env):
                 dynamics_randomize_every=dynamics_randomize_every, dyn_sampler_1=dyn_sampler_1,
                 raw_control=raw_control, raw_control_zero_middle=raw_control_zero_middle, sense_noise=sense_noise,
                 init_random_state=init_random_state, obs_repr=obs_repr, ep_time=ep_time, room_dims=room_dims,
-                use_numba=use_numba,
+                use_numba=use_numba, sim_freq=40, sim_steps=1,
                 # Neighbor
                 num_agents=num_agents,
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles,
+                # GLAS
+                use_glas=use_glas, glas_integrator=glas_integrator,
             )
             self.envs.append(e)
 
@@ -265,6 +277,10 @@ class QuadrotorEnvMulti(gym.Env):
         # Others
         self.apply_collision_force = True
 
+        # GLAS
+        self.use_glas = use_glas
+        self.glas_integrator = glas_integrator
+
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
 
@@ -438,11 +454,11 @@ class QuadrotorEnvMulti(gym.Env):
         # Obstacles
         if self.use_obstacles:
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
-            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
             self.prev_obst_quad_collisions = []
             self.distance_to_goal_3_5 = 0
             self.distance_to_goal_5 = 0
+            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr)
 
         # Collision
         # # Collision: Neighbor
@@ -477,21 +493,404 @@ class QuadrotorEnvMulti(gym.Env):
             self.quads_formation_size = self.scenario.formation_size
             self.all_collisions = {val: [0.0 for _ in range(len(self.envs))] for val in ['drone', 'ground', 'obstacle']}
 
+        if self.use_glas:
+            if self.glas_integrator == 'double_integrator':
+                param = DoubleIntegratorParam()
+                empty_net = Empty_Net(param, "DeepSet")
+                empty_net.load_weights('../glas/double_integrator/empty_net.pt')
+                self.glas_model = Empty_Net_wAPF(param, empty_net)
+                # self.glas_model.to('cuda')
+
+                self.n_agents = 8
+                self.state_dim_per_agent = 4
+                self.action_dim_per_agent = 2
+                self.r_agent = param.r_agent
+                self.r_obstacle = param.r_obstacle
+                self.r_obs_sense = param.r_obs_sense
+                self.r_comm = param.r_comm
+
+                # Barrier stuff
+                self.b_gamma = param.b_gamma
+                self.b_exph = param.b_exph
+
+                # Control lim
+                self.a_min = param.a_min
+                self.a_max = param.a_max
+                self.v_min = param.v_min
+                self.v_max = param.v_max
+
+                # Default parameters [SI units]
+                self.n = self.state_dim_per_agent * self.n_agents
+                self.m = self.action_dim_per_agent * self.n_agents
+
+                # Init agents
+                self.agents = []
+                for i in range(self.n_agents):
+                    self.agents.append(Agent(i))
+
+                self.states_name = [
+                    'x-Position [m]',
+                    'y-Position [m]',
+                    'x-Velocity [m/s]',
+                    'y-Velocity [m/s]',
+                ]
+                self.actions_name = [
+                    'x-Acceleration [m/s^2]',
+                    'y-Acceleration [m/s^2]'
+                ]
+
+                self.param = param
+                self.max_reward = 0
+
+                # Update agents and neighbors
+                for agent_i, e in zip(self.agents, self.envs):
+                    agent_i.p = e.init_state[0][:2]
+                    agent_i.v = e.init_state[1][:2]
+                    agent_i.s = np.concatenate((agent_i.p, agent_i.v))
+                    agent_i.s_g = np.concatenate((e.goal[:2], [0, 0]))
+
+            elif self.glas_integrator == 'single_integrator':
+                param = SingleIntegratorParam()
+                empty_net = Empty_Net(param, "DeepSet")
+                empty_net.load_weights('../glas/single_integrator/empty_net.pt')
+                self.glas_model = Empty_Net_wAPF(param, empty_net)
+
+                self.n_agents = 8
+                self.state_dim_per_agent = 2
+                self.action_dim_per_agent = 2
+                self.r_agent = param.r_agent
+                self.r_obstacle = param.r_obstacle
+                self.r_obs_sense = param.r_obs_sense
+                self.r_comm = param.r_comm
+
+                # barrier stuff
+                self.b_gamma = param.b_gamma
+                self.b_exph = param.b_exph
+
+                # control lim
+                self.a_min = param.a_min
+                self.a_max = param.a_max
+
+                # default parameters [SI units]
+                self.n = self.state_dim_per_agent * self.n_agents
+                self.m = self.action_dim_per_agent * self.n_agents
+
+                # init agents
+                self.agents = []
+                for i in range(self.n_agents):
+                    self.agents.append(Agent(i))
+
+                self.states_name = [
+                    'x-Position [m]',
+                    'y-Position [m]',
+                ]
+                self.actions_name = [
+                    'x-Velocity [m/s]',
+                    'y-Velocity [m/s]'
+                ]
+
+                self.param = param
+
+                # Update agents and neighbors
+                for agent_i, e in zip(self.agents, self.envs):
+                    agent_i.p = e.init_state[0][:2]
+                    agent_i.s = agent_i.p
+                    agent_i.s_g = e.goal[:2]
+
+            # Update neighbors
+            self.positions = np.array([agent_i.p for agent_i in self.agents])
+            self.kd_tree_neighbors = spatial.KDTree(self.positions)
+
+            # Obstacles
+            self.obstacles_glas = []
+            for obst_pos in obst_pos_arr:
+                self.obstacles_glas.append([obst_pos[0], obst_pos[1]])
+
+            for x in range(-int(self.room_dims[0] // 2) - 1, int(self.room_dims[0] // 2) + 1):
+                self.obstacles_glas.append([x + 0.5, -self.room_dims[1] // 2 - 0.5])
+                self.obstacles_glas.append([x + 0.5, self.room_dims[1] // 2 + 0.5])
+
+            for y in range(-int(self.room_dims[1] // 2), int(self.room_dims[1] // 2)):
+                self.obstacles_glas.append([-self.room_dims[0] // 2 - 0.5, y + 0.5])
+                self.obstacles_glas.append([self.room_dims[0] // 2 + 0.5, y + 0.5])
+
+            self.obstacles_glas = np.array(self.obstacles_glas)
+
+            if len(self.obstacles_glas) > 0:
+                self.kd_tree_obstacles = spatial.KDTree(self.obstacles_glas)
+
         return obs
+
+    def get_obs_glas_double(self):
+        oa_pairs = []
+        for agent_i in self.agents:
+            p_i = agent_i.p
+            s_i = agent_i.s
+            relative_goal = np.array(agent_i.s_g - s_i)
+
+            # query visible neighbors
+            _, neighbor_idx = self.kd_tree_neighbors.query(p_i,
+                                                           k=self.param.max_neighbors + 1,
+                                                           distance_upper_bound=self.param.r_comm)
+            if type(neighbor_idx) is not np.ndarray:
+                neighbor_idx = [neighbor_idx]
+            relative_neighbors = []
+            for k in neighbor_idx[1:]:  # skip first entry (self)
+                if k < self.positions.shape[0]:
+                    relative_neighbors.append(self.agents[k].s - s_i)
+                else:
+                    break
+            relative_neighbors = np.array(relative_neighbors)
+
+            # query visible obstacles
+            if self.param.max_obstacles > 0 and self.kd_tree_obstacles is not None:
+                _, obst_idx = self.kd_tree_obstacles.query(p_i,
+                                                           k=self.param.max_obstacles,
+                                                           distance_upper_bound=self.param.r_obs_sense)
+                if type(obst_idx) is not np.ndarray:
+                    obst_idx = [obst_idx]
+            else:
+                obst_idx = []
+            relative_obstacles = []
+            for k in obst_idx:
+                if k < self.positions.shape[0]:
+                    relative_obstacles.append(self.obstacles_glas[k, :] - p_i)
+            relative_obstacles = np.array(relative_obstacles)
+
+            # convert to numpy array format
+            num_neighbors = len(relative_neighbors)
+            num_obstacles = len(relative_obstacles)
+            obs_array = np.zeros(5 + 4 * num_neighbors + 2 * num_obstacles)
+
+            obs_array[0] = num_neighbors
+            obs_array[1: 1 + self.state_dim_per_agent] = relative_goal
+            obs_array[5: 5 + 4 * num_neighbors] = relative_neighbors.flatten()
+            if num_obstacles:
+                obs_array[-2 * num_obstacles:] = relative_obstacles.flatten()
+
+            oa_pairs.append((obs_array, np.zeros(self.action_dim_per_agent)))
+
+        # Transformation
+        transformed_oa_pairs, _ = self.preprocess_transformation(oa_pairs)
+        observations = [o for (o, a) in transformed_oa_pairs]
+        return observations
+
+    def get_obs_glas_single(self):
+        oa_pairs = []
+        for agent_i in self.agents:
+            p_i = agent_i.p
+            s_i = agent_i.s
+            relative_goal = np.array(agent_i.s_g - s_i)
+
+            # query visible neighbors
+            _, neighbor_idx = self.kd_tree_neighbors.query(p_i,
+                                                           k=self.param.max_neighbors + 1,
+                                                           distance_upper_bound=self.param.r_comm)
+            if type(neighbor_idx) is not np.ndarray:
+                neighbor_idx = [neighbor_idx]
+            relative_neighbors = []
+            for k in neighbor_idx[1:]:  # skip first entry (self)
+                if k < self.positions.shape[0]:
+                    relative_neighbors.append(self.agents[k].s - s_i)
+                else:
+                    break
+            relative_neighbors = np.array(relative_neighbors)
+
+            # query visible obstacles
+            if self.param.max_obstacles > 0 and self.kd_tree_obstacles is not None:
+                _, obst_idx = self.kd_tree_obstacles.query(p_i,
+                                                           k=self.param.max_obstacles,
+                                                           distance_upper_bound=self.param.r_obs_sense)
+                if type(obst_idx) is not np.ndarray:
+                    obst_idx = [obst_idx]
+            else:
+                obst_idx = []
+            relative_obstacles = []
+            for k in obst_idx:
+                if k < self.positions.shape[0]:
+                    relative_obstacles.append(self.obstacles_glas[k, :] - p_i)
+            relative_obstacles = np.array(relative_obstacles)
+
+            # convert to numpy array format
+            num_neighbors = len(relative_neighbors)
+            num_obstacles = len(relative_obstacles)
+            obs_array = np.zeros(3 + 2 * num_neighbors + 2 * num_obstacles)
+
+            obs_array[0] = num_neighbors
+            obs_array[1: 1 + self.state_dim_per_agent] = relative_goal
+            obs_array[1 + self.state_dim_per_agent: 1 + self.state_dim_per_agent + 2 * num_neighbors] = relative_neighbors.flatten()
+            if num_obstacles:
+                obs_array[-2 * num_obstacles:] = relative_obstacles.flatten()
+
+            oa_pairs.append((obs_array, np.zeros(self.action_dim_per_agent)))
+
+        # Transformation
+        transformed_oa_pairs, _ = self.preprocess_transformation_single(oa_pairs)
+        observations = [o for (o, a) in transformed_oa_pairs]
+        return observations
+
+    def preprocess_transformation_double(self, dataset_batches):
+        transformed_dataset_batches = []
+        transformations_batches = []
+
+        obstacleDist = self.param.r_obs_sense
+
+        for (dataset, classification) in dataset_batches:
+            if isinstance(dataset, torch.Tensor):
+                dataset = dataset.detach().numpy()
+            if isinstance(classification, torch.Tensor):
+                classification = classification.detach().numpy()
+
+            dataset = np.atleast_2d(dataset)
+            classification = np.atleast_2d(classification)
+
+            num_neighbors = int(dataset[0, 0])
+            num_obstacles = int((dataset.shape[1] - 5 - 4 * num_neighbors) / 2)
+
+            idx_goal = np.arange(1, 5, dtype=int)
+
+            transformed_dataset = np.empty(dataset.shape, dtype=np.float32)
+            transformed_classification = np.empty(classification.shape, dtype=np.float32)
+            transformations = np.empty((dataset.shape[0], 2, 2), dtype=np.float32)
+
+            for k, row in enumerate(dataset):
+                transformed_row = np.empty(row.shape, dtype=np.float32)
+                transformed_row[0] = row[0]
+
+                s_gi = row[idx_goal]
+                th = 0
+                R = rot_mat_2d(th)
+                bigR = np.kron(R, R)
+
+                # Goal
+                dist = np.linalg.norm(s_gi[0:2])
+                if dist > obstacleDist:
+                    s_gi[0:2] = s_gi[0:2] / dist * obstacleDist
+
+                transformed_row[idx_goal] = np.matmul(bigR, s_gi)
+
+                # Neighbors
+                neighbor_obs_idx = np.arange(5, 5 + 4 * num_neighbors)
+                neighbor_obs = row[neighbor_obs_idx].reshape(-1, 4)
+                transformed_row[neighbor_obs_idx] = np.matmul(neighbor_obs, bigR.T).flatten()
+
+                obst_obs_idx = np.arange(5 + 4 * num_neighbors, 5 + 4 * num_neighbors + 2 * num_obstacles)
+                obst_obs = row[obst_obs_idx].reshape(-1, 2)
+                transformed_row[obst_obs_idx] = np.matmul(obst_obs, R.T).flatten()
+
+                if classification is not None:
+                    transformed_classification[k, :] = np.matmul(R, classification[k])
+                transformed_dataset[k, :] = transformed_row
+                transformations[k, :, :] = R
+
+            transformed_dataset_batches.append((transformed_dataset, transformed_classification))
+            transformations_batches.append(transformations)
+
+        return transformed_dataset_batches, transformations_batches
+
+    def preprocess_transformation_single(self, dataset_batches):
+        transformed_dataset_batches = []
+        transformations_batches = []
+
+        obstacleDist = self.param.r_obs_sense
+
+        for (dataset, classification) in dataset_batches:
+            if isinstance(dataset, torch.Tensor):
+                dataset = dataset.detach().numpy()
+            if isinstance(classification, torch.Tensor):
+                classification = classification.detach().numpy()
+
+            dataset = np.atleast_2d(dataset)
+            classification = np.atleast_2d(classification)
+
+            num_neighbors = int(dataset[0, 0])
+            num_obstacles = int((dataset.shape[1] - 3 - 2 * num_neighbors) / 2)
+
+            idx_goal = np.arange(1, 3, dtype=int)
+
+            transformed_dataset = np.empty(dataset.shape, dtype=np.float32)
+            transformed_classification = np.empty(classification.shape, dtype=np.float32)
+            transformations = np.empty((dataset.shape[0], 2, 2), dtype=np.float32)
+
+            for k, row in enumerate(dataset):
+                transformed_row = np.empty(row.shape, dtype=np.float32)
+                transformed_row[0] = row[0]
+
+                s_gi = row[idx_goal]
+                th = 0
+                R = rot_mat_2d(th)
+
+                # Goal
+                dist = np.linalg.norm(s_gi[0:2])
+                if dist > obstacleDist:
+                    s_gi[0:2] = s_gi[0:2] / dist * obstacleDist
+
+                transformed_row[idx_goal] = np.matmul(R, s_gi)
+
+                # Neighbors
+                neighbor_obs_idx = np.arange(3, 3 + 2 * num_neighbors)
+                neighbor_obs = row[neighbor_obs_idx].reshape(-1, 2)
+                transformed_row[neighbor_obs_idx] = np.matmul(neighbor_obs, R.T).flatten()
+
+                obst_obs_idx = np.arange(3 + 2 * num_neighbors, 3 + 2 * num_neighbors + 2 * num_obstacles)
+                obst_obs = row[obst_obs_idx].reshape(-1, 2)
+                transformed_row[obst_obs_idx] = np.matmul(obst_obs, R.T).flatten()
+
+                if classification is not None:
+                    transformed_classification[k, :] = np.matmul(R, classification[k])
+                transformed_dataset[k, :] = transformed_row
+                transformations[k, :, :] = R
+
+            transformed_dataset_batches.append((transformed_dataset, transformed_classification))
+            transformations_batches.append(transformations)
+
+        return transformed_dataset_batches, transformations_batches
 
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
 
-        for i, a in enumerate(actions):
-            self.envs[i].rew_coeff = self.rew_coeff
+        # If using Glas, get the output of model here
+        if self.use_glas:
+            if self.glas_integrator == 'double_integrator':
+                glas_obs = self.get_obs_glas_double()
+            else:
+                glas_obs = self.get_obs_glas_single()
 
-            observation, reward, done, info = self.envs[i].step(a)
-            obs.append(observation)
-            rewards.append(reward)
-            dones.append(done)
-            infos.append(info)
+            real_actions = self.glas_model.policy(glas_obs, 'cuda')
+            for i, a in enumerate(real_actions):
+                observation, reward, done, info = self.envs[i].step(a)
+                obs.append(observation)
+                rewards.append(reward)
+                dones.append(done)
+                infos.append(info)
+                self.pos[i, :] = self.envs[i].dynamics.pos
 
-            self.pos[i, :] = self.envs[i].dynamics.pos
+            # Update agents and neighbors
+            if self.glas_integrator == 'double_integrator':
+                for agent_i, e in zip(self.agents, self.envs):
+                    agent_i.p = e.dynamics.pos[:2]
+                    agent_i.v = e.dynamics.vel[:2]
+                    agent_i.s = np.concatenate((agent_i.p, agent_i.v))
+            else:
+                for agent_i, e in zip(self.agents, self.envs):
+                    agent_i.p = e.dynamics.pos[:2]
+                    agent_i.v = e.dynamics.vel[:2]
+                    agent_i.s = agent_i.p
+
+            self.positions = np.array([agent_i.p for agent_i in self.agents])
+            self.kd_tree_neighbors = spatial.KDTree(self.positions)
+
+        else:
+            for i, a in enumerate(actions):
+                self.envs[i].rew_coeff = self.rew_coeff
+
+                observation, reward, done, info = self.envs[i].step(a)
+                obs.append(observation)
+                rewards.append(reward)
+                dones.append(done)
+                infos.append(info)
+
+                self.pos[i, :] = self.envs[i].dynamics.pos
 
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones

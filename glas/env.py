@@ -549,7 +549,7 @@ class DoubleIntegrator(Env):
                 transformed_row = np.empty(row.shape, dtype=np.float32)
                 transformed_row[0] = row[0]
 
-                # get goal
+                # get state: distance to goal & vel
                 # s_gi = sg - si
                 s_gi = row[idx_goal]
 
@@ -576,12 +576,25 @@ class DoubleIntegrator(Env):
                     s_ji = row[idx]
                     transformed_row[idx] = np.matmul(bigR, s_ji)
 
+                neighbor_obs_idx = np.arange(5, 5 + 4 * num_neighbors)
+                neighbor_obs = row[neighbor_obs_idx].reshape(-1, 4)
+                test_neighbor_1 = transformed_row[neighbor_obs_idx]
+                test_neighbor_2 = np.matmul(neighbor_obs, bigR.T).flatten()
+
+                assert np.allclose(test_neighbor_1, test_neighbor_2)
+
                 # get obstacles
                 # transform neighbors
                 for j in range(num_obstacles):
                     idx = 1 + 4 + num_neighbors * 4 + j * 2 + np.arange(0, 2, dtype=int)
                     s_oi = row[idx]
                     transformed_row[idx] = np.matmul(R, s_oi)
+
+                obst_obs_idx = 5 + 4 * num_neighbors + 2 * num_obstacles
+                obst_obs = row[5 + 4 * num_neighbors: obst_obs_idx].reshape(-1, 2)
+                test_obst_1 = transformed_row[5 + 4 * num_neighbors: obst_obs_idx]
+                test_obst_2 = np.matmul(obst_obs, R.T).flatten()
+                assert np.allclose(test_obst_1, test_obst_2)
 
                 # transform action
                 if classification is not None:
@@ -1187,4 +1200,3 @@ class SingleIntegrator(Env):
             self.obstacles.append([-1, y])
             self.obstacles.append([instance["map"]["dimensions"][0], y])
         return s0
-

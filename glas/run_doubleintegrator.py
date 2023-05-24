@@ -2,6 +2,7 @@ import torch
 import os
 
 from glas.env import DoubleIntegrator
+from glas.learning.empty_net import Empty_Net
 from glas.model import Empty_Net_wAPF
 from glas.params import DoubleIntegratorParam
 from glas.sim import load_instance_double, run
@@ -31,14 +32,18 @@ if __name__ == '__main__':
     param = DoubleIntegratorParam()
     env = DoubleIntegrator(param)
 
-    ckpt = torch.load('./double_integrator/il_current.pt')
+    # ckpt = torch.load('./double_integrator/il_current.pt')
+    # model = Empty_Net_wAPF(param, ckpt)
+    # model.empty.save_weights('./double_integrator/empty_net.pt')
+    empty_net = Empty_Net(param, "DeepSet")
+    empty_net.load_weights('./double_integrator/empty_net.pt')
     controllers = {
-        'emptywapf': Empty_Net_wAPF(param, env, torch.load('./double_integrator/il_current.pt')),
+        'emptywapf': Empty_Net_wAPF(param, empty_net),
     }
 
     torch.set_num_threads(1)
 
-    for file in os.listdir("./instances"):
+    for file in os.listdir("./instances/test"):
         if file.endswith(".yaml") and "agents8" in file:
             map_instance_name = file.split('.')[0]
             print("Instance: ", map_instance_name)

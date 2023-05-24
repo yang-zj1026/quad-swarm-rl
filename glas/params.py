@@ -17,7 +17,7 @@ class DoubleIntegratorParam:
         self.sim_render_on = False
 
         # orca param
-        self.n_agents = 4
+        self.n_agents = 8
         self.r_comm = 3.  # 0.5
         self.r_obs_sense = 3.
         self.r_agent = 0.15  # 0.2
@@ -41,7 +41,7 @@ class DoubleIntegratorParam:
         self.max_obstacles = 6
 
         self.safety = "cf_di_2"  # potential, fdbk_di, cf_di, cf_di_2
-        self.rollout_batch_on = True
+        self.rollout_batch_on = False
         self.default_instance = "map_8by8_obst6_agents8_ex0000.yaml"
         self.current_model = 'il_current.pt'
 
@@ -126,7 +126,7 @@ class SingleIntegratorParam:
         # safety
         self.safety = "cf_si_2"  # "potential", "fdbk_si", "cf_si"
         self.default_instance = "map_8by8_obst6_agents8_ex0003.yaml"
-        self.rollout_batch_on = True
+        self.rollout_batch_on = False
 
         self.max_neighbors = 6
         self.max_obstacles = 6

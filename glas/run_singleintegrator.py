@@ -27,12 +27,16 @@ if __name__ == '__main__':
     param = SingleIntegratorParam()
     env = SingleIntegrator(param)
 
+    ckpt = torch.load('./single_integrator/il_current.pt')
+    model = Empty_Net_wAPF(param, ckpt)
+    model.empty.save_weights('./single_integrator/empty_net.pt')
+
     controllers = {
-        'emptywapf': Empty_Net_wAPF(param, env, torch.load('./single_integrator/il_current.pt')),
+        'emptywapf': Empty_Net_wAPF(param, torch.load('./single_integrator/il_current.pt')),
     }
 
     torch.set_num_threads(1)
-    for file in os.listdir("./instances"):
+    for file in os.listdir("./instances/test"):
         if file.endswith(".yaml") and "agents8" in file:
             map_instance_name = file.split('.')[0]
             print("Instance: ", map_instance_name)

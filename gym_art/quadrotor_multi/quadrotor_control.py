@@ -1,5 +1,9 @@
 from numpy.linalg import norm
 from gym import spaces
+import torch
+
+from glas.model import Empty_Net_wAPF
+from glas.params import DoubleIntegratorParam
 from gym_art.quadrotor_multi.quad_utils import *
 
 GRAV = 9.81
@@ -252,7 +256,7 @@ class VelocityYawControl(object):
 # using the controller from Mellinger et al. 2011
 class MellingerController(object):
     # @profile
-    def __init__(self, dynamics):
+    def __init__(self, dynamics, use_glas=False, glas_integrator='single_integrator'):
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
         ## Jacobian inverse for our quadrotor
@@ -269,6 +273,9 @@ class MellingerController(object):
 
         self.step_func = self.step
 
+        self.use_glas = use_glas
+        self.glas_integrator = glas_integrator
+
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, goal, dt, action=None, observation=None):
@@ -279,7 +286,17 @@ class MellingerController(object):
         e_p = -clamp_norm(to_goal, 4.0)
         e_v = dynamics.vel
         # print('Mellinger: ', e_p, e_v, type(e_p), type(e_v))
-        acc_des = -self.kp_p * e_p - self.kd_p * e_v + np.array([0, 0, GRAV])
+        if self.use_glas:
+            if self.glas_integrator == 'single_integrator':
+                kp_v = 5.0
+                action = np.append(action, 0.0)
+                e_v = dynamics.vel - action
+                acc_des = -kp_v * e_v + npa(0, 0, GRAV + 0.03)
+
+            else:
+                acc_des = np.array([action[0], action[1], GRAV + 0.03])
+        else:
+            acc_des = -self.kp_p * e_p - self.kd_p * e_v + np.array([0, 0, GRAV])
 
         # I don't need to control yaw
         # if goal_dist > 2.0 * dynamics.arm:

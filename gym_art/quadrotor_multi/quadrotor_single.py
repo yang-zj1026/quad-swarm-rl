@@ -102,7 +102,8 @@ class QuadrotorSingle:
                  sim_steps=2, obs_repr="xyz_vxyz_R_omega", ep_time=7, room_dims=(10.0, 10.0, 10.0),
                  init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
-                 neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False):
+                 neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
+                 use_glas=False, glas_integrator='single'):
         np.seterr(under='ignore')
         """
         Args:
@@ -153,7 +154,6 @@ class QuadrotorSingle:
             self.init_random_state = False
         else:
             self.init_random_state = init_random_state
-
 
         # Preset parameters
         self.obs_repr = obs_repr
@@ -215,6 +215,8 @@ class QuadrotorSingle:
 
         # Updating dynamics
         self.action_space = None
+        self.use_glas = use_glas
+        self.glas_integrator = glas_integrator
         self.resample_dynamics()
 
         # Self info
@@ -276,7 +278,7 @@ class QuadrotorSingle:
             else:
                 raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         else:
-            self.controller = MellingerController(self.dynamics)
+            self.controller = MellingerController(self.dynamics, use_glas=self.use_glas, glas_integrator=self.glas_integrator)
 
         # ACTIONS
         self.action_space = self.controller.action_space(self.dynamics)
@@ -351,6 +353,7 @@ class QuadrotorSingle:
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
 
+        # TODO: get the observation for each drone here
         self.controller.step_func(dynamics=self.dynamics, action=action, goal=self.goal, dt=self.dt, observation=None)
 
         self.time_remain = self.ep_len - self.tick
@@ -444,7 +447,6 @@ class QuadrotorSingle:
                     rotation = randyaw()
                     while np.dot(rotation[:, 0], to_xyhat(-pos)) < 0.5:
                         rotation = randyaw()
-
 
         self.init_state = [pos, vel, rotation, omega]
         self.dynamics.set_state(pos, vel, rotation, omega)

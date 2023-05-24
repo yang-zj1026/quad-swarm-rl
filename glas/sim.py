@@ -356,7 +356,7 @@ def sim(param, env, controllers, initial_state, visualize):
 
 
 def load_instance_double(param, env):
-    with open("./instances/{}".format(param.default_instance)) as map_file:
+    with open("./instances/test/{}".format(param.default_instance)) as map_file:
         # test map test dataset
         map_data = yaml.safe_load(map_file)
 
@@ -386,7 +386,7 @@ def load_instance_double(param, env):
 
 
 def load_instance_single(param, env):
-    with open("./instances/{}".format(param.default_instance)) as map_file:
+    with open("./instances/test/{}".format(param.default_instance)) as map_file:
         # test map test dataset
         map_data = yaml.safe_load(map_file)
 

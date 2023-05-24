@@ -6,9 +6,7 @@ from glas.learning.barrier_fncs import Barrier_Fncs
 
 class Empty_Net_wAPF:
 
-    def __init__(self, param, env, empty):
-
-        self.env = env
+    def __init__(self, param, empty):
         self.empty = empty
         self.param = param
         self.bf = Barrier_Fncs(param)
@@ -232,8 +230,10 @@ class Empty_Net_wAPF:
             else:
                 A = np.empty((len(x), self.dim_action))
                 for i, x_i in enumerate(x):
+                    x_i = torch.tensor(x_i, device=device)
                     a_i = self(x_i)
-                    A[i, :] = a_i
+                    a_i_np = a_i.detach().cpu().numpy()
+                    A[i, :] = a_i_np
                 return A
         else:
             A = np.empty((len(x), self.dim_action))
