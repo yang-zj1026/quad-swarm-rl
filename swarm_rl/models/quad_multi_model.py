@@ -124,8 +124,9 @@ class QuadNeighborhoodEncoderMlp(QuadNeighborhoodEncoder):
 
 
 class QuadMultiHeadAttentionEncoder(Encoder):
-    def __init__(self, cfg, obs_space):
+    def __init__(self, cfg, obs_space, model_name=''):
         super().__init__(cfg)
+        self.model_name = model_name
 
         # Internal params
         if cfg.quads_obs_repr in QUADS_OBS_REPR:
@@ -167,6 +168,10 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             nonlinearity(cfg)
         )
 
+        self.self_embed_layer_modules = list(self.self_embed_layer.named_children())
+        self.neighbor_embed_layer_modules = list(self.neighbor_embed_layer.named_children())
+        self.obstacle_embed_layer_modules = list(self.obstacle_embed_layer.named_children())
+
         # Attention Layer
         num_heads = 4
         self.attention_layer = MultiHeadAttention(num_heads, cfg.rnn_size, cfg.rnn_size, cfg.rnn_size)
@@ -176,8 +181,12 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             self.encoder_output_size = cfg.quads_encoder_output_size
         else:
             self.encoder_output_size = cfg.rnn_size
+
         self.feed_forward = nn.Sequential(fc_layer(3 * cfg.rnn_size, self.encoder_output_size),
-                                          nn.Tanh())
+                                          nonlinearity(cfg))
+
+        self.need_intermediate_results = cfg.use_dormant_neurons
+        self.intermediate_results = {}
 
     def forward(self, obs_dict):
         obs = obs_dict['obs']
@@ -186,9 +195,18 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         obs_neighbor = obs[:, self.self_obs_dim: self.self_obs_dim + self.all_neighbor_obs_dim]
         obs_obstacle = obs[:, self.self_obs_dim + self.all_neighbor_obs_dim:]
 
-        self_embed = self.self_embed_layer(obs_self)
-        neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
-        obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
+        if self.need_intermediate_results:
+            self_embed = self.forward_with_intermediates(obs_self, self.self_embed_layer_modules,
+                                                         'self_embed_layer')
+            neighbor_embed = self.forward_with_intermediates(obs_neighbor, self.neighbor_embed_layer_modules,
+                                                             'neighbor_embed_layer')
+            obstacle_embed = self.forward_with_intermediates(obs_obstacle, self.obstacle_embed_layer_modules,
+                                                             'obstacle_embed_layer')
+        else:
+            self_embed = self.self_embed_layer(obs_self)
+            neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
+            obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
+
         neighbor_embed = neighbor_embed.view(batch_size, 1, -1)
         obstacle_embed = obstacle_embed.view(batch_size, 1, -1)
         attn_embed = torch.cat((neighbor_embed, obstacle_embed), dim=1)
@@ -198,6 +216,8 @@ class QuadMultiHeadAttentionEncoder(Encoder):
 
         embeddings = torch.cat((self_embed, attn_embed), dim=1)
 
+        out = self.feed_forward(embeddings)
+
         # self_embed_score = estimate_neuron_score(self_embed)
         # neighbor_embed_score = estimate_neuron_score(neighbor_embed)
         # obstacle_embed_score = estimate_neuron_score(obstacle_embed)
@@ -206,19 +226,28 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         # print("Neighbor embed dormant neurons:", 1 - torch.count_nonzero(neighbor_embed_score) / neighbor_embed_score.size(0))
         # print("Obstacle embed dormant neurons:", 1 - torch.count_nonzero(obstacle_embed_score) / obstacle_embed_score.size(0))
 
-        out = self.feed_forward(embeddings)
-
         # final_embed_score = estimate_neuron_score(out)
 
         return out
+
+    def forward_with_intermediates(self, x, modules, module_name):
+        for i, submodule in enumerate(modules):
+            layer_name, layer = submodule
+            x = layer(x)
+            if isinstance(layer, (nn.ReLU, nn.Tanh, nn.Sigmoid, nn.LeakyReLU)):
+                key = self.model_name + '.' + module_name + '.' + modules[i - 1][0]
+                self.intermediate_results[key] = x
+
+        return x
 
     def get_out_size(self):
         return self.encoder_output_size
 
 
 class QuadMultiHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
-    def __init__(self, cfg, obs_space):
-        super().__init__(cfg, obs_space)
+    def __init__(self, cfg, obs_space, model_name=''):
+        super().__init__(cfg, obs_space, model_name)
+        self.model_name = model_name
 
         # Internal params
         if cfg.quads_obs_repr in QUADS_OBS_REPR:
@@ -374,12 +403,12 @@ class QuadMultiEncoder(Encoder):
         return self.encoder_out_size
 
 
-def make_quadmulti_encoder(cfg, obs_space) -> Encoder:
+def make_quadmulti_encoder(cfg, obs_space, model_name) -> Encoder:
     if cfg.quads_encoder_type == "attention":
         if cfg.quads_sim2real:
-            model = QuadMultiHeadAttentionEncoder_Sim2Real(cfg, obs_space)
+            model = QuadMultiHeadAttentionEncoder_Sim2Real(cfg, obs_space, model_name)
         else:
-            model = QuadMultiHeadAttentionEncoder(cfg, obs_space)
+            model = QuadMultiHeadAttentionEncoder(cfg, obs_space, model_name)
     else:
         model = QuadMultiEncoder(cfg, obs_space)
     return model
