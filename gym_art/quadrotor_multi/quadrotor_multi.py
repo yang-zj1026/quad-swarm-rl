@@ -211,19 +211,16 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
-        self.flying_time = [[] for _ in range(len(self.envs))]
+        self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
-        self.prev_pos = [[] for _ in range(len(self.envs))]
+        self.prev_pos = [np.zeros(3) for _ in range(len(self.envs))]
 
         # # Log vel
-        # self.episode_vel_mean, self.episode_vel_max: consider whole episode, start from step 0
-        self.episode_vel_mean = [[] for _ in range(len(self.envs))]
-        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
-        # self.episode_vel_no_col_mean, self.episode_vel_no_col_max: consider episode, start from step 150
+        # self.episode_vel, self.episode_vel_max: consider episode, start from step 150
         # & no collision drones, drone & obst, drone & wall
-        self.episode_vel_no_col_mean = [[] for _ in range(len(self.envs))]
-        self.episode_vel_no_col_max = [0.0 for _ in range(len(self.envs))]
+        self.episode_vel = [[] for _ in range(len(self.envs))]
+        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
         # Log metric
         self.agent_col_agent = np.ones(self.num_agents)
@@ -487,10 +484,10 @@ class QuadrotorEnvMulti(gym.Env):
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
-        self.flying_time = [[] for _ in range(len(self.envs))]
+        self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
-        self.prev_pos = [self.envs[_].dynamics.pos for _ in range(len(self.envs))]
+        self.prev_pos = [self.envs[i].dynamics.pos for i in range(len(self.envs))]
         # roll, pitch, yaw rate (to show the agility)
         # roll
         self.roll_rate = [[] for _ in range(self.num_agents)]
@@ -506,13 +503,10 @@ class QuadrotorEnvMulti(gym.Env):
         self.body_rate_max = np.zeros(self.num_agents)
 
         # # Log vel
-        # self.episode_vel_mean, self.episode_vel_max: consider whole episode, start from step 0
-        self.episode_vel_mean = [[] for _ in range(len(self.envs))]
-        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
-        # self.episode_vel_no_col_mean, self.episode_vel_no_col_max: consider episode, start from step 150
+        # self.episode_vel, self.episode_vel_max: consider episode, start from step 150
         # & no collision drones, drone & obst, drone & wall
-        self.episode_vel_no_col_mean = [[] for _ in range(len(self.envs))]
-        self.episode_vel_no_col_max = [0.0 for _ in range(len(self.envs))]
+        self.episode_vel = [[] for _ in range(len(self.envs))]
+        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
         # Rendering
         if self.quads_render:
@@ -713,14 +707,39 @@ class QuadrotorEnvMulti(gym.Env):
             # if self.envs[i].time_remain < 5 * self.control_freq:
             self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
 
-            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) / self.envs[0].dt < self.scenario.approch_goal_metric \
-                    and not self.envs[i].reached_goal:
-                self.reached_goal[i] = True
-                self.envs[i].reached_goal = True
-                self.flying_time[i] = self.envs[i].tick * self.envs[i].dt
+            if not self.reached_goal[i]:
+                self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
+                self.prev_pos[i] = self.envs[i].dynamics.pos
 
-            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
-            self.prev_pos[i] = self.envs[i].dynamics.pos
+                # vel
+                vel_agent_i = np.linalg.norm(self.envs[i].dynamics.vel)
+                self.episode_vel[i].append(vel_agent_i)
+                if vel_agent_i > self.episode_vel_max[i]:
+                    self.episode_vel_max[i] = vel_agent_i
+
+                # roll, pitch, yaw
+                tmp_roll_i, tmp_pitch_i, tmp_yaw_i = np.array(self.envs[i].dynamics.omega)
+                self.roll_rate[i].append(tmp_roll_i)
+                self.pitch_rate[i].append(tmp_pitch_i)
+                self.yaw_rate[i].append(tmp_yaw_i)
+                # body rate
+                omega_agent_i = np.linalg.norm(self.envs[i].dynamics.omega)
+                self.body_rate[i].append(omega_agent_i)
+
+                if tmp_roll_i > self.roll_rate_max[i]:
+                    self.roll_rate_max[i] = tmp_roll_i
+                if tmp_pitch_i > self.pitch_rate_max[i]:
+                    self.pitch_rate_max[i] = tmp_pitch_i
+                if tmp_yaw_i > self.yaw_rate_max[i]:
+                    self.yaw_rate_max[i] = tmp_yaw_i
+                if omega_agent_i > self.body_rate_max[i]:
+                    self.body_rate_max[i] = omega_agent_i
+
+            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) / self.envs[0].dt < self.scenario.approch_goal_metric \
+                    and not self.reached_goal[i]:
+                self.reached_goal[i] = True
+                # tick is calculated by control_dt, not dt
+                self.flying_time[i] = self.envs[i].tick * self.control_dt
 
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False
@@ -798,51 +817,36 @@ class QuadrotorEnvMulti(gym.Env):
             ground_collisions = [
                 1.0 if env.dynamics.on_floor else 0.0 for env in self.envs]
             if self.use_obstacles:
-                obst_coll = [1.0 if i <
-                             0 else 0.0 for i in rew_obst_quad_collisions_raw]
+                obst_coll = [1.0 if i < 0 else 0.0 for i in rew_obst_quad_collisions_raw]
             else:
                 obst_coll = [0.0 for _ in range(self.num_agents)]
+
             self.all_collisions = {'drone': drone_col_matrix, 'ground': ground_collisions,
                                    'obstacle': obst_coll}
-
-        for i in range(self.num_agents):
-            vel_agent_i = np.linalg.norm(self.envs[i].dynamics.vel)
-            self.episode_vel_mean[i].append(vel_agent_i)
-            if vel_agent_i > self.episode_vel_max[i]:
-                self.episode_vel_max[i] = vel_agent_i
-
-            if not (self.agent_col_agent[i] == 0 or self.agent_col_obst[i] == 0 or i in wall_crash_list):
-                self.episode_vel_no_col_mean[i].append(vel_agent_i)
-                if vel_agent_i > self.episode_vel_no_col_max[i]:
-                    self.episode_vel_no_col_max[i] = vel_agent_i
-
-                # roll, pitch, yaw
-                tmp_roll_i, tmp_pitch_i, tmp_yaw_i = np.array(self.envs[i].dynamics.omega)
-                self.roll_rate[i].append(tmp_roll_i)
-                self.pitch_rate[i].append(tmp_pitch_i)
-                self.yaw_rate[i].append(tmp_yaw_i)
-                # body rate
-                omega_agent_i = np.linalg.norm(self.envs[i].dynamics.omega)
-                self.body_rate[i].append(omega_agent_i)
-
-                if tmp_roll_i > self.roll_rate_max[i]:
-                    self.roll_rate_max[i] = tmp_roll_i
-                if tmp_pitch_i > self.pitch_rate_max[i]:
-                    self.pitch_rate_max[i] = tmp_pitch_i
-                if tmp_yaw_i > self.yaw_rate_max[i]:
-                    self.yaw_rate_max[i] = tmp_yaw_i
-                if omega_agent_i > self.body_rate_max[i]:
-                    self.body_rate_max[i] = omega_agent_i
 
         # 7. DONES
         if any(dones):
             scenario_name = self.scenario.name()[9:]
             self.distance_to_goal = np.array(self.distance_to_goal)
-            self.flying_trajectory = np.array(self.flying_trajectory)
             self.flying_time = np.array(self.flying_time)
             self.reached_goal = np.array(self.reached_goal)
-            if not np.any(self.reached_goal):
-                self.reached_goal[0] = True
+
+            # With different length, need to specify with dtype=object
+            self.flying_trajectory = np.array(self.flying_trajectory, dtype=object)
+            self.episode_vel = np.array(self.episode_vel, dtype=object)
+            self.episode_vel_max = np.array(self.episode_vel_max)
+
+            self.roll_rate = np.array(self.roll_rate, dtype=object)
+            self.roll_rate_max = np.array(self.roll_rate_max)
+
+            self.pitch_rate = np.array(self.pitch_rate, dtype=object)
+            self.pitch_rate_max = np.array(self.pitch_rate_max)
+
+            self.yaw_rate = np.array(self.yaw_rate, dtype=object)
+            self.yaw_rate_max = np.array(self.yaw_rate_max)
+
+            self.body_rate = np.array(self.body_rate, dtype=object)
+            self.body_rate_max = np.array(self.body_rate_max)
 
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
@@ -876,38 +880,6 @@ class QuadrotorEnvMulti(gym.Env):
                             self.distance_to_goal[i, int(-3 * self.control_freq):]),
                         f'{scenario_name}/distance_to_goal_5s': (1.0 / self.envs[0].dt) * np.mean(
                             self.distance_to_goal[i, int(-5 * self.control_freq):]),
-
-                        # Log vel
-                        'episode_vel_mean': np.mean(self.episode_vel_mean[i]),
-                        f'{scenario_name}/episode_vel_mean': np.mean(self.episode_vel_mean[i]),
-                        'episode_vel_max': self.episode_vel_max[i],
-                        f'{scenario_name}/episode_vel_max': self.episode_vel_max[i],
-
-                        'episode_vel_no_col_mean': np.mean(self.episode_vel_no_col_mean[i]),
-                        f'{scenario_name}/episode_vel_no_col_mean': np.mean(self.episode_vel_no_col_mean[i]),
-                        'episode_vel_no_col_max': self.episode_vel_no_col_max[i],
-                        f'{scenario_name}/episode_vel_no_col_max': self.episode_vel_no_col_max[i],
-
-                        # Log roll, pitch, yaw
-                        'roll_mean': np.mean(self.roll_rate[i]),
-                        f'{scenario_name}/roll_mean': np.mean(self.roll_rate[i]),
-                        'roll_rate_max': self.roll_rate_max[i],
-                        f'{scenario_name}/roll_rate_max': self.roll_rate_max[i],
-
-                        'pitch_mean': np.mean(self.pitch_rate[i]),
-                        f'{scenario_name}/pitch_mean': np.mean(self.pitch_rate[i]),
-                        'pitch_rate_max': self.pitch_rate_max[i],
-                        f'{scenario_name}/pitch_rate_max': self.pitch_rate_max[i],
-
-                        'yaw_mean': np.mean(self.yaw_rate[i]),
-                        f'{scenario_name}/yaw_mean': np.mean(self.yaw_rate[i]),
-                        'yaw_rate_max': self.yaw_rate_max[i],
-                        f'{scenario_name}/yaw_rate_max': self.yaw_rate_max[i],
-
-                        'body_rate_mean': np.mean(self.body_rate[i]),
-                        f'{scenario_name}/body_rate_mean': np.mean(self.body_rate[i]),
-                        'body_rate_max': self.body_rate_max[i],
-                        f'{scenario_name}/body_rate_max': self.body_rate_max[i],
                     }
 
                     if self.use_obstacles:
@@ -940,18 +912,8 @@ class QuadrotorEnvMulti(gym.Env):
                     if self.obst_quad_collisions_after_settle > 0:
                         base_no_collision_flag = False
 
-                # base_success_flag = base_no_collision_flag & approach_goal_flag
-                approch_goal_metric = self.scenario.approch_goal_metric
-                approach_goal_list = []
-                for i in range(len(infos)):
-                    final_1s = (1.0 / self.envs[0].dt) * np.mean(
-                        self.distance_to_goal[i, int(-1 * self.control_freq):])
-                    if final_1s <= approch_goal_metric:
-                        approach_goal_list.append(True)
-                    else:
-                        approach_goal_list.append(False)
-
-                if all(approach_goal_list):
+                # base_success_flag = base_no_collision_flag & reached_goal
+                if all(self.reached_goal):
                     approach_goal_flag = True
                 else:
                     approach_goal_flag = False
@@ -976,16 +938,13 @@ class QuadrotorEnvMulti(gym.Env):
 
                 # agent_success_rate: base_success_rate, based on per agent
                 # 0: collision; 1: no collision
-                agent_col_flag_list = np.logical_and(
-                    self.agent_col_agent, self.agent_col_obst)
-                agent_success_flag_list = np.logical_and(
-                    agent_col_flag_list, approach_goal_list)
-                agent_success_ratio = 1.0 * \
-                    np.sum(agent_success_flag_list) / self.num_agents
+                agent_col_flag_list = np.logical_and(self.agent_col_agent, self.agent_col_obst)
+                agent_success_flag_list = np.logical_and(agent_col_flag_list, self.reached_goal)
+                agent_success_ratio = 1.0 * np.sum(agent_success_flag_list) / self.num_agents
 
                 # agent_deadlock_rate
                 # Doesn't approach to the goal while no collisions with other objects
-                agent_deadlock_list = np.logical_and(agent_col_flag_list, 1 - np.array(approach_goal_list))
+                agent_deadlock_list = np.logical_and(agent_col_flag_list, 1 - self.reached_goal)
                 agent_deadlock_ratio = 1.0 * np.sum(agent_deadlock_list) / self.num_agents
 
                 # agent_col_rate
@@ -998,9 +957,32 @@ class QuadrotorEnvMulti(gym.Env):
                 agent_obst_col_ratio = 1.0 - np.sum(self.agent_col_obst) / self.num_agents
 
                 # agent flying trajectory and time
-                agent_success_flying_trajectories = self.flying_trajectory[agent_success_flag_list]
-                agent_success_traj_mean = np.mean(np.sum(agent_success_flying_trajectories, axis=-1))
-                agent_success_flying_time_mean = np.mean(self.flying_time[agent_success_flag_list])
+                if agent_success_ratio > 0:
+                    # Flying traj
+                    agent_success_flying_trajectories = self.flying_trajectory[agent_success_flag_list]
+                    agent_success_traj_mean = np.mean(np.sum(agent_success_flying_trajectories, axis=-1))
+                    # Flying time
+                    agent_success_flying_time_mean = np.mean(self.flying_time[agent_success_flag_list])
+                    # Vel
+                    agent_success_vel_arr = self.episode_vel[agent_success_flag_list]
+                    agent_success_vel_mean = np.mean(np.sum(agent_success_vel_arr, axis=-1))
+                    agent_success_vel_max = np.mean(self.episode_vel_max[agent_success_flag_list])
+                    # Roll
+                    agent_success_roll_arr = self.roll_rate[agent_success_flag_list]
+                    agent_success_roll_mean = np.mean(np.sum(agent_success_roll_arr, axis=-1))
+                    agent_success_roll_max = np.mean(self.roll_rate_max[agent_success_flag_list])
+                    # Pitch
+                    agent_success_pitch_arr = self.pitch_rate[agent_success_flag_list]
+                    agent_success_pitch_mean = np.mean(np.sum(agent_success_pitch_arr, axis=-1))
+                    agent_success_pitch_max = np.mean(self.pitch_rate_max[agent_success_flag_list])
+                    # Yaw
+                    agent_success_yaw_arr = self.yaw_rate[agent_success_flag_list]
+                    agent_success_yaw_mean = np.mean(np.sum(agent_success_yaw_arr, axis=-1))
+                    agent_success_yaw_max = np.mean(self.yaw_rate_max[agent_success_flag_list])
+                    # Body rate
+                    agent_success_body_rate_arr = self.body_rate[agent_success_flag_list]
+                    agent_success_body_rate_mean = np.mean(np.sum(agent_success_body_rate_arr, axis=-1))
+                    agent_success_body_rate_max = np.mean(self.body_rate_max[agent_success_flag_list])
 
                 for i in range(len(infos)):
                     # base_no_collision_rate
@@ -1040,13 +1022,40 @@ class QuadrotorEnvMulti(gym.Env):
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
 
                     # agent flying trajectories
+                    if agent_success_ratio > 0:
+                        infos[i]['episode_extra_stats']['flying_trajectory'] = agent_success_traj_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/flying_trajectory'] = agent_success_traj_mean
 
-                    infos[i]['episode_extra_stats']['flying_trajectory'] = agent_success_traj_mean
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/flying_trajectory'] = agent_success_traj_mean
+                        # agent flying time
+                        infos[i]['episode_extra_stats']['flying_time'] = agent_success_flying_time_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/flying_time'] = agent_success_flying_time_mean
 
-                    # agent flying time
-                    infos[i]['episode_extra_stats']['flying_time'] = agent_success_flying_time_mean,
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/flying_time'] = agent_success_flying_time_mean,
+                        # agent vel
+                        infos[i]['episode_extra_stats']['agent_success_vel_mean'] = agent_success_vel_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_vel_mean'] = agent_success_vel_mean
+                        infos[i]['episode_extra_stats']['agent_success_vel_max'] = agent_success_vel_max
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_vel_max'] = agent_success_vel_max
+
+                        # agent roll, pitch, yaw, body_rate
+                        infos[i]['episode_extra_stats']['agent_success_roll_mean'] = agent_success_roll_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_roll_mean'] = agent_success_roll_mean
+                        infos[i]['episode_extra_stats']['agent_success_roll_max'] = agent_success_roll_max
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_roll_max'] = agent_success_roll_max
+
+                        infos[i]['episode_extra_stats']['agent_success_pitch_mean'] = agent_success_pitch_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_pitch_mean'] = agent_success_pitch_mean
+                        infos[i]['episode_extra_stats']['agent_success_pitch_max'] = agent_success_pitch_max
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_pitch_max'] = agent_success_pitch_max
+
+                        infos[i]['episode_extra_stats']['agent_success_yaw_mean'] = agent_success_yaw_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_yaw_mean'] = agent_success_yaw_mean
+                        infos[i]['episode_extra_stats']['agent_success_yaw_max'] = agent_success_yaw_max
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_yaw_max'] = agent_success_yaw_max
+
+                        infos[i]['episode_extra_stats']['agent_success_body_rate_mean'] = agent_success_body_rate_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_body_rate_mean'] = agent_success_body_rate_mean
+                        infos[i]['episode_extra_stats']['agent_success_body_rate_max'] = agent_success_body_rate_max
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_body_rate_max'] = agent_success_body_rate_max
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"
