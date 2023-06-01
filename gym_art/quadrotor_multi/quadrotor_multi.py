@@ -1010,16 +1010,16 @@ class QuadrotorEnvMulti(gym.Env):
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_rate'] = agent_success_ratio
 
                     # agent_col_rate
-                    infos[i]['episode_extra_stats']['metric/agent_no_col_rate'] = agent_col_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/agent_no_col_rate'] = agent_col_ratio
+                    infos[i]['episode_extra_stats']['metric/agent_col_rate'] = agent_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/agent_col_rate'] = agent_col_ratio
 
                     # agent_neighbor_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
 
                     # agent_obst_col_rate
-                    infos[i]['episode_extra_stats']['metric/agent_obst_no_col_rate'] = agent_obst_col_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_no_col_rate'] = agent_obst_col_ratio
+                    infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
 
                     # agent flying trajectories
                     if agent_success_ratio > 0:
