@@ -119,9 +119,9 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.clip_neighbor_space_length = self.num_use_neighbor_obs * neighbor_obs_size
         self.clip_neighbor_space_min_box = self.observation_space.low[
-            obs_self_size:obs_self_size + self.clip_neighbor_space_length]
+                                           obs_self_size:obs_self_size + self.clip_neighbor_space_length]
         self.clip_neighbor_space_max_box = self.observation_space.high[
-            obs_self_size:obs_self_size + self.clip_neighbor_space_length]
+                                           obs_self_size:obs_self_size + self.clip_neighbor_space_length]
 
         # Obstacles
         self.use_obstacles = use_obstacles
@@ -211,7 +211,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
-        self.flying_time = [[] for _ in range(len(self.envs))]
+        self.flying_time = [0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
         self.prev_pos = [[] for _ in range(len(self.envs))]
@@ -349,7 +349,7 @@ class QuadrotorEnvMulti(gym.Env):
                 # new relative distance is a new metric that combines relative position and relative velocity
                 # the smaller the new_rel_dist, the closer the drones
                 new_rel_dist = rel_dist + \
-                    np.sum(rel_pos_unit * rel_vel, axis=1)
+                               np.sum(rel_pos_unit * rel_vel, axis=1)
 
                 rel_pos_index = new_rel_dist.argsort()
                 rel_pos_index = rel_pos_index[:self.num_use_neighbor_obs]
@@ -369,7 +369,8 @@ class QuadrotorEnvMulti(gym.Env):
         Here we count the average number of collisions with the walls and ground in the last N episodes
         Returns: True if drones are considered proficient at flying
         """
-        res = abs(np.mean(self.crashes_in_recent_episodes)) < 1 and len(self.crashes_in_recent_episodes) >= 5 * self.sim_steps
+        res = abs(np.mean(self.crashes_in_recent_episodes)) < 1 and len(
+            self.crashes_in_recent_episodes) >= 5 * self.sim_steps
         return res
 
     def calculate_room_collision(self):
@@ -408,7 +409,7 @@ class QuadrotorEnvMulti(gym.Env):
         obst_map = np.zeros([obst_area_length, obst_area_width])
         for obst_id in obst_index:
             rid, cid = obst_id // obst_area_width, obst_id - \
-                (obst_id // obst_area_width) * obst_area_width
+                       (obst_id // obst_area_width) * obst_area_width
             obst_map[rid, cid] = 1
             obst_item = list(
                 cell_centers[rid + int(obst_area_length / grid_size) * cid])
@@ -417,7 +418,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         return obst_map, obst_pos_arr, cell_centers
 
-    def generate_obst_with_min_gap(self, grid_size=1.0):
+    def generate_obst_with_min_gap(self, grid_size=1.0, debug=False):
         obst_area_length, obst_area_width = int(self.obst_spawn_area[0]), int(self.obst_spawn_area[1])
         num_room_grids = obst_area_length * obst_area_width
         room_grids_idx = np.arange(num_room_grids)
@@ -434,7 +435,7 @@ class QuadrotorEnvMulti(gym.Env):
             obst_item = cell_centers[rid + int(obst_area_length / grid_size) * cid]
             obst_item = np.append(obst_item, self.room_dims[2] / 2.)
             # If the distance between the point and any point in the subset is less than the threshold, then skip the point.
-            if any(distance - self.obst_size< self.obst_min_gap for distance in [np.linalg.norm(obst_item - other) for other in obst_pos_arr]):
+            if any(distance - self.obst_size < self.obst_min_gap for distance in [np.linalg.norm(obst_item - other) for other in obst_pos_arr]):
                 continue
 
             # Otherwise, add the point to the subset.
@@ -443,8 +444,8 @@ class QuadrotorEnvMulti(gym.Env):
 
             if len(obst_pos_arr) >= self.num_obstacles:
                 break
-
-        print("Obst Num:", len(obst_pos_arr))
+        if debug:
+            print("Obst Num:", len(obst_pos_arr))
         return obst_map, obst_pos_arr, cell_centers
 
     def init_scene_multi(self):
@@ -580,7 +581,8 @@ class QuadrotorEnvMulti(gym.Env):
                 if self.use_obstacles:
                     for obst_pose in self.obst_pos_arr:
                         x, y = obst_pose[0], obst_pose[1]
-                        if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
+                        if (np.linalg.norm(
+                                np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
                             z = 0.0
                             while z < self.room_dims[2]:
                                 if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
@@ -590,7 +592,7 @@ class QuadrotorEnvMulti(gym.Env):
                                                 position=np.array([x, y, z]),
                                                 velocity=np.zeros(3)
                                             ),
-                                            radius=self.obst_size*0.5,
+                                            radius=self.obst_size * 0.5,
                                             maximum_linf_acceleration_lower_bound=0.0
                                         )
                                     )
@@ -712,7 +714,7 @@ class QuadrotorEnvMulti(gym.Env):
         rew_collisions_obst_quad = np.zeros(self.num_agents)
         if self.use_obstacles:
             rew_collisions_obst_quad = self.rew_coeff["quadcol_bin_obst"] * \
-                rew_obst_quad_collisions_raw
+                                       rew_obst_quad_collisions_raw
 
         # 3) With room
         # # TODO: reward penalty
@@ -736,19 +738,17 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
 
-            if self.envs[i].time_remain < 5 * self.control_freq:
-                self.distance_to_goal[i].append(-infos[i]
-                                                ["rewards"]["rewraw_pos"])
+            # if self.envs[i].time_remain < 5 * self.control_freq:
+            self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
 
-            if -infos[i]["rewards"]["rewraw_pos"]/self.envs[0].dt < self.scenario.approch_goal_metric and not self.envs[i].reached_goal:
+            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) / self.envs[
+                0].dt < self.scenario.approch_goal_metric \
+                    and not self.envs[i].reached_goal:
+                self.reached_goal[i] = True
                 self.envs[i].reached_goal = True
-                if len(self.flying_time[i]) > 0:
-                    self.reached_goal[i] = True
-                    self.flying_time[i].append(self.envs[i].tick*self.envs[i].dt-self.flying_time[i][-1])
-                else:
-                    self.flying_time[i].append(self.envs[i].tick * self.envs[i].dt)
+                self.flying_time[i] = self.envs[i].tick * self.envs[i].dt
 
-            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i]-self.envs[i].dynamics.pos))
+            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
             self.prev_pos[i] = self.envs[i].dynamics.pos
 
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
@@ -768,10 +768,10 @@ class QuadrotorEnvMulti(gym.Env):
             if len(new_quad_collision) > 0:
                 self_state_update_flag = True
                 for val in new_quad_collision:
-                    dyn1, dyn2 = self.envs[val[0]
-                                           ].dynamics, self.envs[val[1]].dynamics
+                    dyn1, dyn2 = self.envs[val[0]].dynamics, self.envs[val[1]].dynamics
                     dyn1.vel, dyn1.omega, dyn2.vel, dyn2.omega = perform_collision_between_drones(
-                        pos1=dyn1.pos, vel1=dyn1.vel, omega1=dyn1.omega, pos2=dyn2.pos, vel2=dyn2.vel, omega2=dyn2.omega)
+                        pos1=dyn1.pos, vel1=dyn1.vel, omega1=dyn1.omega, pos2=dyn2.pos, vel2=dyn2.vel,
+                        omega2=dyn2.omega)
 
             # # 3) Obstacles
             if self.use_obstacles:
@@ -828,7 +828,7 @@ class QuadrotorEnvMulti(gym.Env):
                 1.0 if env.dynamics.on_floor else 0.0 for env in self.envs]
             if self.use_obstacles:
                 obst_coll = [1.0 if i <
-                             0 else 0.0 for i in rew_obst_quad_collisions_raw]
+                                    0 else 0.0 for i in rew_obst_quad_collisions_raw]
             else:
                 obst_coll = [0.0 for _ in range(self.num_agents)]
             self.all_collisions = {'drone': drone_col_matrix, 'ground': ground_collisions,
@@ -850,12 +850,9 @@ class QuadrotorEnvMulti(gym.Env):
             scenario_name = self.scenario.name()[9:]
             self.distance_to_goal = np.array(self.distance_to_goal)
             self.flying_trajectory = np.array(self.flying_trajectory)
+            self.flying_time = np.array(self.flying_time)
             self.reached_goal = np.array(self.reached_goal)
-            padded_flying_time = np.zeros(
-                [len(self.flying_time), max(len(max(self.flying_time, key=lambda x: len(x))), 2)])
-            for j, k in enumerate(self.flying_time):
-                padded_flying_time[j][0:len(k)] = k
-            self.flying_time = padded_flying_time[:, 1:]
+
             if not np.any(self.reached_goal):
                 self.reached_goal[0] = True
             for i in range(len(infos)):
@@ -876,12 +873,6 @@ class QuadrotorEnvMulti(gym.Env):
 
                         'num_collisions_final_5_s': self.collisions_final_5s,
                         f'{scenario_name}/num_collisions_final_5_s': self.collisions_final_5s,
-
-                        'flying_trajectory': (1.0 / self.envs[0].dt) * np.mean(self.flying_trajectory[i]),
-                        f'{scenario_name}/flying_trajectory': (1.0 / self.envs[0].dt) * np.mean(self.flying_trajectory[i]),
-
-                        'flying_time': np.mean(self.flying_time[self.reached_goal]),
-                        f'{scenario_name}/flying_time': np.mean(self.flying_time[self.reached_goal]),
 
                         'distance_to_goal_1s': (1.0 / self.envs[0].dt) * np.mean(
                             self.distance_to_goal[i, int(-1 * self.control_freq):]),
@@ -937,10 +928,8 @@ class QuadrotorEnvMulti(gym.Env):
                     if self.obst_quad_collisions_after_settle > 0:
                         base_no_collision_flag = False
 
-                self.base_no_collision_rate.append(
-                    float(base_no_collision_flag))
-                self.base_no_collision_rate_dict[scenario_name].append(
-                    float(base_no_collision_flag))
+                self.base_no_collision_rate.append(float(base_no_collision_flag))
+                self.base_no_collision_rate_dict[scenario_name].append(float(base_no_collision_flag))
 
                 # base_success_flag = base_no_collision_flag & approach_goal_flag
                 approch_goal_metric = self.scenario.approch_goal_metric
@@ -971,8 +960,7 @@ class QuadrotorEnvMulti(gym.Env):
 
                 mid_success_flag = base_success_flag & no_col_wall_ceil_flag
                 self.mid_success_rate.append(float(mid_success_flag))
-                self.mid_success_rate_dict[scenario_name].append(
-                    float(mid_success_flag))
+                self.mid_success_rate_dict[scenario_name].append(float(mid_success_flag))
 
                 # full_success_flag = base_success_flag & no_col_wall_ceil_flag * no_col_floor_flag
                 if self.collisions_floor_per_episode == 0:
@@ -982,22 +970,17 @@ class QuadrotorEnvMulti(gym.Env):
 
                 full_success_flag = mid_success_flag & no_col_floor_flag
                 self.full_success_rate.append(float(full_success_flag))
-                self.full_success_rate_dict[scenario_name].append(
-                    float(full_success_flag))
+                self.full_success_rate_dict[scenario_name].append(float(full_success_flag))
 
                 # deadlock_rate
                 self.no_deadlock_rate.append(float(approach_goal_flag))
-                self.no_deadlock_rate_dict[scenario_name].append(
-                    float(approach_goal_flag))
+                self.no_deadlock_rate_dict[scenario_name].append(float(approach_goal_flag))
 
                 # agent_success_rate: base_success_rate, based on per agent
                 # 0: collision; 1: no collision
-                agent_col_flag_list = np.logical_and(
-                    self.agent_col_agent, self.agent_col_obst)
-                agent_success_flag_list = np.logical_and(
-                    agent_col_flag_list, approach_goal_list)
-                agent_success_ratio = 1.0 * \
-                    np.sum(agent_success_flag_list) / self.num_agents
+                agent_col_flag_list = np.logical_and(self.agent_col_agent, self.agent_col_obst)
+                agent_success_flag_list = np.logical_and(agent_col_flag_list, approach_goal_list)
+                agent_success_ratio = 1.0 * np.sum(agent_success_flag_list) / self.num_agents
 
                 self.agent_success_rate.append(agent_success_ratio)
                 self.agent_success_rate_dict[scenario_name].append(
@@ -1035,6 +1018,15 @@ class QuadrotorEnvMulti(gym.Env):
                         self.agent_success_rate)
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_rate'] = \
                         np.mean(self.agent_success_rate_dict[scenario_name])
+
+                    # only log agents that succeed
+                    agent_success_flying_trajectories = self.flying_trajectory[agent_success_flag_list]
+                    agent_success_traj_mean = np.mean(np.sum(agent_success_flying_trajectories, axis=-1))
+                    infos[i]['episode_extra_stats']['flying_trajectory'] = agent_success_traj_mean
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/flying_trajectory'] = agent_success_traj_mean
+
+                    infos[i]['episode_extra_stats']['flying_time'] = np.mean(self.flying_time[agent_success_flag_list]),
+                    infos[i]['episode_extra_stats']['{scenario_name}/flying_time'] = np.mean(self.flying_time[agent_success_flag_list]),
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"
@@ -1102,7 +1094,7 @@ class QuadrotorEnvMulti(gym.Env):
         render_time = time.time() - render_start
 
         desired_time_between_frames = realtime_control_period * \
-            self.frames_since_last_render / self.render_speed
+                                      self.frames_since_last_render / self.render_speed
         time_to_sleep = desired_time_between_frames - simulation_time - render_time
 
         # wait so we don't simulate/render faster than realtime
