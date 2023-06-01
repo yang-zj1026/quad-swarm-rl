@@ -217,10 +217,10 @@ class QuadrotorEnvMulti(gym.Env):
         self.prev_pos = [np.zeros(3) for _ in range(len(self.envs))]
 
         # # Log vel
-        # self.episode_vel_no_col_mean, self.episode_vel_no_col_max: consider episode, start from step 150
+        # self.episode_vel, self.episode_vel_max: consider episode, start from step 150
         # & no collision drones, drone & obst, drone & wall
-        self.episode_vel_no_col_mean = [[] for _ in range(len(self.envs))]
-        self.episode_vel_no_col_max = [0.0 for _ in range(len(self.envs))]
+        self.episode_vel = [[] for _ in range(len(self.envs))]
+        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
         # Log metric
         self.agent_col_agent = np.ones(self.num_agents)
@@ -503,10 +503,10 @@ class QuadrotorEnvMulti(gym.Env):
         self.body_rate_max = np.zeros(self.num_agents)
 
         # # Log vel
-        # self.episode_vel_no_col_mean, self.episode_vel_no_col_max: consider episode, start from step 150
+        # self.episode_vel, self.episode_vel_max: consider episode, start from step 150
         # & no collision drones, drone & obst, drone & wall
-        self.episode_vel_no_col_mean = [[] for _ in range(len(self.envs))]
-        self.episode_vel_no_col_max = [0.0 for _ in range(len(self.envs))]
+        self.episode_vel = [[] for _ in range(len(self.envs))]
+        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
         # Rendering
         if self.quads_render:
@@ -713,9 +713,9 @@ class QuadrotorEnvMulti(gym.Env):
 
                 # vel
                 vel_agent_i = np.linalg.norm(self.envs[i].dynamics.vel)
-                self.episode_vel_no_col_mean[i].append(vel_agent_i)
-                if vel_agent_i > self.episode_vel_no_col_max[i]:
-                    self.episode_vel_no_col_max[i] = vel_agent_i
+                self.episode_vel[i].append(vel_agent_i)
+                if vel_agent_i > self.episode_vel_max[i]:
+                    self.episode_vel_max[i] = vel_agent_i
 
                 # roll, pitch, yaw
                 tmp_roll_i, tmp_pitch_i, tmp_yaw_i = np.array(self.envs[i].dynamics.omega)
@@ -817,10 +817,10 @@ class QuadrotorEnvMulti(gym.Env):
             ground_collisions = [
                 1.0 if env.dynamics.on_floor else 0.0 for env in self.envs]
             if self.use_obstacles:
-                obst_coll = [1.0 if i <
-                             0 else 0.0 for i in rew_obst_quad_collisions_raw]
+                obst_coll = [1.0 if i < 0 else 0.0 for i in rew_obst_quad_collisions_raw]
             else:
                 obst_coll = [0.0 for _ in range(self.num_agents)]
+
             self.all_collisions = {'drone': drone_col_matrix, 'ground': ground_collisions,
                                    'obstacle': obst_coll}
 
@@ -830,10 +830,11 @@ class QuadrotorEnvMulti(gym.Env):
             self.distance_to_goal = np.array(self.distance_to_goal)
             self.flying_time = np.array(self.flying_time)
             self.reached_goal = np.array(self.reached_goal)
+
             # With different length, need to specify with dtype=object
             self.flying_trajectory = np.array(self.flying_trajectory, dtype=object)
-            self.episode_vel_no_col_mean = np.array(self.episode_vel_no_col_mean, dtype=object)
-            self.episode_vel_no_col_max = np.array(self.episode_vel_no_col_max)
+            self.episode_vel = np.array(self.episode_vel, dtype=object)
+            self.episode_vel_max = np.array(self.episode_vel_max)
 
             self.roll_rate = np.array(self.roll_rate, dtype=object)
             self.roll_rate_max = np.array(self.roll_rate_max)
@@ -963,9 +964,9 @@ class QuadrotorEnvMulti(gym.Env):
                     # Flying time
                     agent_success_flying_time_mean = np.mean(self.flying_time[agent_success_flag_list])
                     # Vel
-                    agent_success_vel_arr = self.episode_vel_no_col_mean[agent_success_flag_list]
+                    agent_success_vel_arr = self.episode_vel[agent_success_flag_list]
                     agent_success_vel_mean = np.mean(np.sum(agent_success_vel_arr, axis=-1))
-                    agent_success_vel_max = np.mean(self.episode_vel_no_col_max[agent_success_flag_list])
+                    agent_success_vel_max = np.mean(self.episode_vel_max[agent_success_flag_list])
                     # Roll
                     agent_success_roll_arr = self.roll_rate[agent_success_flag_list]
                     agent_success_roll_mean = np.mean(np.sum(agent_success_roll_arr, axis=-1))
