@@ -150,7 +150,7 @@ class QuadrotorSingle:
                                   [self.room_length / 2., self.room_width / 2., self.room_height]])
 
         # REMOVE WHEN CONTROLER IS REMOVED
-        self.use_controller = False
+        self.use_controller = True
 
         if self.use_controller:
             self.init_random_state = False
@@ -370,8 +370,10 @@ class QuadrotorSingle:
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
 
+        t = time.time()
         self.controller.step_func(
             dynamics=self.dynamics, action=action, goal=self.goal, dt=self.dt, observation=sbc_data)
+        t = time.time() - t
 
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
@@ -383,7 +385,7 @@ class QuadrotorSingle:
         sv = self.state_vector(self)
         self.traj_count += int(done)
 
-        return sv, reward, done, {'rewards': rew_info}
+        return sv, reward, done, {'rewards': rew_info}, t
 
     def resample_dynamics(self):
         """

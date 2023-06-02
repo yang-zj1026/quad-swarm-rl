@@ -190,7 +190,8 @@ class QuadrotorEnvMulti(gym.Env):
         self.use_numba = use_numba
 
         # SBC
-        self.use_sbc = use_sbc
+        self.use_sbc = True
+        self.compute_time = 0
 
         # Aerodynamics
         self.use_downwash = use_downwash
@@ -551,9 +552,10 @@ class QuadrotorEnvMulti(gym.Env):
 
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
-
+        self.compute_time = 0
         for i, a in enumerate(actions):
             if self.use_sbc:
+                t = time.time()
                 self_state = NominalSBC.State(
                     position=self.envs[i].dynamics.pos, velocity=self.envs[i].dynamics.vel)
                 neighbor_descriptions = []
@@ -595,13 +597,15 @@ class QuadrotorEnvMulti(gym.Env):
                                         )
                                     )
                                 z += self.obst_size * 0.5
+                self.compute_time += time.time() - t
 
             self.envs[i].rew_coeff = self.rew_coeff
 
             if self.use_sbc:
-                observation, reward, done, info = self.envs[i].step(
+                observation, reward, done, info, t = self.envs[i].step(
                     a, {"self_state": self_state,
                         "neighbor_descriptions": neighbor_descriptions})
+                self.compute_time += t
             else:
                 observation, reward, done, info = self.envs[i].step(a)
             # print("num neighbors: ", len(neighbor_descriptions))
@@ -873,6 +877,8 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_with_ceiling': self.collisions_ceiling_per_episode,
                         'num_collisions_after_settle': self.collisions_after_settle,
                         f'{scenario_name}/num_collisions': self.collisions_after_settle,
+
+                        'compute_time': self.compute_time,
 
                         'num_collisions_final_5_s': self.collisions_final_5s,
                         f'{scenario_name}/num_collisions_final_5_s': self.collisions_final_5s,
