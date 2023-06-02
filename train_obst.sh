@@ -14,5 +14,5 @@ python -m swarm_rl.train \
 --replay_buffer_sample_prob=0.75 --anneal_collision_steps=300000000 --save_milestones_sec=1800 \
 --normalize_input=False --normalize_returns=False --reward_clip=10 \
 --quads_use_obstacles=True --quads_obst_collision_reward=5.0 \
---quads_obst_size=0.6 --quads_obst_density=0.2 --quads_obst_spawn_area 8 8 --quads_obstacle_obs_type=octomap \
---experiment=test_sim_freq --quads_sim_freq=200 --quads_sim_steps=8
+--quads_obst_size=1.0 --quads_obst_density=0.2 --quads_obst_spawn_area 8 8 --quads_obstacle_obs_type=octomap \
+--experiment=test_sbc

@@ -548,6 +548,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.all_collisions = {val: [0.0 for _ in range(len(self.envs))] for val in [
                 'drone', 'ground', 'obstacle']}
 
+        self.step_time = deque(maxlen=500)
         return obs
 
     def step(self, actions):
@@ -606,6 +607,10 @@ class QuadrotorEnvMulti(gym.Env):
                     a, {"self_state": self_state,
                         "neighbor_descriptions": neighbor_descriptions})
                 self.compute_time += t
+                self.step_time.append(self.compute_time)
+                if len(self.step_time) == 500:
+                    print("mean step time: ", np.mean(self.step_time))
+                    self.step_time.clear()
             else:
                 observation, reward, done, info = self.envs[i].step(a)
             # print("num neighbors: ", len(neighbor_descriptions))
