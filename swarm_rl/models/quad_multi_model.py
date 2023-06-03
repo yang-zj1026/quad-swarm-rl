@@ -112,8 +112,6 @@ class QuadNeighborhoodEncoderMlp(QuadNeighborhoodEncoder):
             nonlinearity(cfg),
             fc_layer(neighbor_hidden_size, neighbor_hidden_size),
             nonlinearity(cfg),
-            fc_layer(neighbor_hidden_size, neighbor_hidden_size),
-            nonlinearity(cfg),
         )
 
     def forward(self, self_obs, obs, all_neighbor_obs_size, batch_size):
