@@ -150,7 +150,7 @@ class QuadrotorSingle:
                                   [self.room_length / 2., self.room_width / 2., self.room_height]])
 
         # REMOVE WHEN CONTROLER IS REMOVED
-        self.use_controller = True
+        self.use_controller = False
 
         if self.use_controller:
             self.init_random_state = False
@@ -385,7 +385,7 @@ class QuadrotorSingle:
         sv = self.state_vector(self)
         self.traj_count += int(done)
 
-        return sv, reward, done, {'rewards': rew_info}, t
+        return sv, reward, done, {'rewards': rew_info}
 
     def resample_dynamics(self):
         """
