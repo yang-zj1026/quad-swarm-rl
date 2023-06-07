@@ -998,7 +998,7 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
 
-            self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
+            self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.envs[i].goal[:2]))
             self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
             self.prev_pos[i] = self.envs[i].dynamics.pos
 
@@ -1027,8 +1027,7 @@ class QuadrotorEnvMulti(gym.Env):
                 if omega_agent_i > self.body_rate_max[i]:
                     self.body_rate_max[i] = omega_agent_i
 
-            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) / self.envs[
-                0].dt < self.scenario.approch_goal_metric \
+            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) < self.scenario.approch_goal_metric \
                     and not self.reached_goal[i]:
                 self.reached_goal[i] = True
                 # tick is calculated by control_dt, not dt
@@ -1282,7 +1281,8 @@ class QuadrotorEnvMulti(gym.Env):
                 self.yaw_rate_buffer.append(agent_success_yaw_mean)
                 self.body_rate_buffer.append(agent_success_body_rate_mean)
 
-                if len(self.agent_success_rate_buffer) == 100:
+                if len(self.agent_success_rate_buffer) % 10 == 0:
+                    print(len(self.agent_success_rate_buffer))
                     print("Agent success rate: ", np.mean(self.agent_success_rate_buffer))
                     print("Agent collision rate: ", np.mean(self.agent_col_rate_buffer))
                     print("Agent deadlock rate: ", np.mean(self.agent_deadlock_rate_buffer))
