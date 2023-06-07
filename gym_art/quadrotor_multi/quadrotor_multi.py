@@ -242,6 +242,12 @@ class QuadrotorEnvMulti(gym.Env):
         # Others
         self.apply_collision_force = True
 
+        # Testing
+        self.agent_success_rate_buffer = deque([], maxlen=100)
+        self.agent_col_rate_buffer = deque([], maxlen=100)
+        self.flying_time_buffer = deque([], maxlen=100)
+        self.flying_trajectory_buffer = deque([], maxlen=100)
+
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
 
@@ -983,6 +989,18 @@ class QuadrotorEnvMulti(gym.Env):
                     agent_success_body_rate_arr = self.body_rate[agent_success_flag_list]
                     agent_success_body_rate_mean = np.mean(np.sum(agent_success_body_rate_arr, axis=-1))
                     agent_success_body_rate_max = np.mean(self.body_rate_max[agent_success_flag_list])
+
+                    self.agent_success_rate_buffer.append(agent_success_ratio)
+                    self.agent_col_rate_buffer.append(agent_col_ratio)
+                    self.flying_trajectory_buffer.append(agent_success_traj_mean)
+                    self.flying_time_buffer.append(agent_success_flying_time_mean)
+
+                    if len(self.agent_success_rate_buffer) % 10 == 0:
+                        print(len(self.agent_success_rate_buffer))
+                        print(f'agent_success_rate: {np.mean(self.agent_success_rate_buffer)}')
+                        print(f'agent_col_rate: {np.mean(self.agent_col_rate_buffer)}')
+                        print(f'flying_trajectory: {np.mean(self.flying_trajectory_buffer)}')
+                        print(f'flying_time: {np.mean(self.flying_time_buffer)}')
 
                 for i in range(len(infos)):
                     # base_no_collision_rate
