@@ -11,11 +11,10 @@ import numpy as np
 from matplotlib import ticker
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-from plots.plot_utils import set_matplotlib_params
+
 from sample_factory.utils.utils import ensure_dir_exists
 from matplotlib.ticker import FuncFormatter
 
-set_matplotlib_params()
 
 PAGE_WIDTH_INCHES = 8.2
 FULL_PAGE_WIDTH = 1.4 * PAGE_WIDTH_INCHES
@@ -32,10 +31,10 @@ COLLISIONS_SCALE = ((TIME_METRIC_COLLISION/EPISODE_DURATION) / NUM_AGENTS) * 2  
 CRASH_GROUND_SCALE = (-1.0 / EPISODE_DURATION)
 
 PLOTS = [
-    dict(key='0_aux/avg_rewraw_pos', name='Avg. distance to the target', label='Avg. distance, meters', coeff=-1.0/EPISODE_DURATION, logscale=True, clip_min=0.2, y_scale_formater=[0.2, 0.5, 1.0, 2.0]),
-    dict(key='0_aux/avg_num_collisions_Scenario_ep_rand_bezier', name='Avg. collisions for pursuit evasion (bezier)', label='Number of collisions', logscale=True, coeff=COLLISIONS_SCALE, clip_min=0.05),
-    dict(key='0_aux/avg_num_collisions_after_settle', name='Avg. collisions between drones per minute', label='Number of collisions', logscale=True, coeff=COLLISIONS_SCALE, clip_min=0.05),
-    dict(key='0_aux/avg_num_collisions_Scenario_static_same_goal', name='Avg. collisions for static same goal', label='Number of collisions', logscale=True, coeff=COLLISIONS_SCALE, clip_min=0.05),
+    dict(key='policy_stats/avg_rewraw_pos', name='Avg. distance to the target', label='Avg. distance, meters', coeff=-1.0/EPISODE_DURATION, logscale=True, clip_min=0.2, y_scale_formater=[0.2, 0.5, 1.0, 2.0]),
+    # dict(key='0_aux/avg_num_collisions_Scenario_ep_rand_bezier', name='Avg. collisions for pursuit evasion (bezier)', label='Number of collisions', logscale=True, coeff=COLLISIONS_SCALE, clip_min=0.05),
+    # dict(key='0_aux/avg_num_collisions_after_settle', name='Avg. collisions between drones per minute', label='Number of collisions', logscale=True, coeff=COLLISIONS_SCALE, clip_min=0.05),
+    # dict(key='0_aux/avg_num_collisions_Scenario_static_same_goal', name='Avg. collisions for static same goal', label='Number of collisions', logscale=True, coeff=COLLISIONS_SCALE, clip_min=0.05),
 ]
 
 PLOT_STEP = int(5e6)
@@ -54,8 +53,8 @@ def extract(experiments):
 
     # Get and validate all scalar keys
     all_keys = [tuple(sorted(scalar_accumulator.Keys())) for scalar_accumulator in scalar_accumulators]
-    assert len(set(all_keys)) == 1, \
-        "All runs need to have the same scalar keys. There are mismatches in {}".format(all_keys)
+    # assert len(set(all_keys)) == 1, \
+    #     "All runs need to have the same scalar keys. There are mismatches in {}".format(all_keys)
 
     keys = all_keys[0]
     all_scalar_events_per_key = [[scalar_accumulator.Items(key)
@@ -63,12 +62,12 @@ def extract(experiments):
 
     # Get and validate all steps per key
     x_per_key = [[tuple(scalar_event.step
-                 for scalar_event in sorted(scalar_events)) for scalar_events in sorted(all_scalar_events)]
+                 for scalar_event in scalar_events) for scalar_events in all_scalar_events]
                  for all_scalar_events in all_scalar_events_per_key]
 
     plot_step = PLOT_STEP
     all_steps_per_key = [[tuple(int(step_id) for step_id in range(0, TOTAL_STEP, plot_step))
-                          for _ in sorted(all_scalar_events)]
+                          for _ in all_scalar_events]
                           for all_scalar_events in all_scalar_events_per_key]
 
     for i, all_steps in enumerate(all_steps_per_key):
@@ -252,7 +251,7 @@ def main():
         raise argparse.ArgumentTypeError('Parameter {} is not a valid path'.format(path))
 
     subpaths = sorted(os.listdir(path))
-    legend_name = sorted(["ATTENTION", "DEEPSETS", "MLP"])
+    legend_name = sorted(["w/ Replay Buffer", "w/o Replay"])
     all_experiment_dirs = {}
     for subpath in subpaths:
         if subpath not in all_experiment_dirs:
@@ -271,15 +270,15 @@ def main():
         aggregate(path, subpaths[i], all_experiment_dirs[subpaths[i]], ax, legend_name[i], i)
 
         # if i != 0:
-    handles, labels = ax[-1].get_legend_handles_labels()
-    lgd = fig.legend(handles, labels, bbox_to_anchor=(0.15, 0.85, 0.8, 0.2), loc='upper left', ncol=3, mode="expand", prop={'size': 6})
+    handles, labels = ax[0].get_legend_handles_labels()
+    lgd = fig.legend(handles, labels,  loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.06), fontsize=8)
     lgd.set_in_layout(True)
 
     plt.tight_layout(pad=1.0)
     plt.subplots_adjust(wspace=0.25, hspace=0.3)
     # plt.margins(0, 0)
 
-    plt.savefig(os.path.join(os.getcwd(), f'../final_plots/quads_compare_arch.pdf'), format='pdf', bbox_inches='tight', pad_inches=0.01)
+    plt.savefig(os.path.join(os.getcwd(), f'final_plots/quads_compare_arch.pdf'), format='pdf', bbox_inches='tight', pad_inches=0.01)
 
     return 0
 
