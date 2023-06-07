@@ -1281,6 +1281,7 @@ class QuadrotorEnvMulti(gym.Env):
                 self.yaw_rate_buffer.append(agent_success_yaw_mean)
                 self.body_rate_buffer.append(agent_success_body_rate_mean)
 
+
                 if len(self.agent_success_rate_buffer) % 10 == 0:
                     print(len(self.agent_success_rate_buffer))
                     print("Agent success rate: ", np.mean(self.agent_success_rate_buffer))

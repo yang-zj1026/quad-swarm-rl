@@ -20,8 +20,8 @@ class DoubleIntegratorParam:
         self.n_agents = 8
         self.r_comm = 3.  # 0.5
         self.r_obs_sense = 3.
-        self.r_agent = 0.15  # 0.2
-        self.r_obstacle = 0.5
+        self.r_agent = 0.1  # 0.2
+        self.r_obstacle = 0.3
         self.v_max = 0.5
         self.a_max = 2.0  # .0 #2.0 # 7.5
         # self.v_max = 100
