@@ -14,7 +14,7 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 from sample_factory.utils.utils import ensure_dir_exists
 from matplotlib.ticker import FuncFormatter
 
-PAGE_WIDTH_INCHES = 6.6
+PAGE_WIDTH_INCHES = 7.2
 FULL_PAGE_WIDTH = 1.4 * PAGE_WIDTH_INCHES
 HALF_PAGE_WIDTH = FULL_PAGE_WIDTH / 2
 
@@ -32,10 +32,11 @@ CRASH_GROUND_SCALE = (-1.0 / EPISODE_DURATION)
 
 PLOTS = [
     dict(key='metric/agent_success_rate', name='Agent success rate', label='Average Rate'),
-    # dict(key='policy_stats/avg_distance_to_goal_1s', name='Avg. distance to the goal', label='Avg. distance(m)', clip_min=0.1, y_scale_formater=[0.1, 0.5, 1.0, 2.0]),
+    dict(key='metric/agent_col_rate', name='Agent collision rate', label='Average Rate'),
+    dict(key='policy_stats/avg_distance_to_goal_1s', name='Shift from goal', label='Distance (m)'),
     # dict(key='metric/agent_deadlock_rate', name='Agent deadlock rate', label='Deadlock Rate'),
-    dict(key='metric/agent_neighbor_col_rate', name='Agent collision w/ neighbors rate'),
-    dict(key='metric/agent_obst_col_rate', name='Agent collision w/ obstacles rate'),
+    # dict(key='metric/agent_neighbor_col_rate', name='Agent collision w/ neighbors rate'),
+    # dict(key='metric/agent_obst_col_rate', name='Agent collision w/ obstacles rate'),
 ]
 
 PLOT_STEP = int(5e6)
@@ -144,7 +145,7 @@ def aggregate(path, subpath, experiments, ax, legend_name, group_id):
 
     for i, key in enumerate(interpolated_keys.keys()):
         if i == (len(interpolated_keys.keys()) - 1) // 2:
-            set_xlabel = True
+            set_xlabel = False
         else:
             set_xlabel = False
 
@@ -418,7 +419,7 @@ def main():
         raise argparse.ArgumentTypeError('Parameter {} is not a valid path'.format(path))
 
     subpaths = sorted(os.listdir(path))
-    legend_name = sorted(["Replay Buffer", "w/o Replay Buffer"])
+    legend_name = ["Replay Buffer", "No Replay Buffer"]
     all_experiment_dirs = {}
     for subpath in subpaths:
         if subpath not in all_experiment_dirs:
@@ -440,6 +441,8 @@ def main():
     handles, labels = ax[0].get_legend_handles_labels()
     lgd = fig.legend(handles, labels, loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.07), fontsize=7)
     lgd.set_in_layout(True)
+
+    fig.text(0.5, -0.02, 'Total environment steps', ha='center', fontsize=9)
 
     plt.tight_layout(pad=1.0)
     plt.subplots_adjust(wspace=0.15, hspace=0.25)
