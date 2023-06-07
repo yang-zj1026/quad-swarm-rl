@@ -212,7 +212,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
-        self.flying_time = [[] for _ in range(len(self.envs))]
+        self.flying_time = [0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
         self.prev_pos = [[] for _ in range(len(self.envs))]
@@ -286,6 +286,9 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Others
         self.apply_collision_force = True
+
+        self.flying_trajectory_buffer = deque([], maxlen=100)
+        self.flying_time_buffer = deque([], maxlen=100)
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
@@ -527,7 +530,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
-        self.flying_time = [[] for _ in range(len(self.envs))]
+        self.flying_time = [0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
         self.prev_pos = [self.envs[_].dynamics.pos for _ in range(len(self.envs))]
@@ -607,10 +610,10 @@ class QuadrotorEnvMulti(gym.Env):
                     a, {"self_state": self_state,
                         "neighbor_descriptions": neighbor_descriptions})
                 self.compute_time += t
-                self.step_time.append(self.compute_time)
-                if len(self.step_time) == 500:
-                    print("mean step time: ", np.mean(self.step_time))
-                    self.step_time.clear()
+                # self.step_time.append(self.compute_time)
+                # if len(self.step_time) == 500:
+                    # print("mean step time: ", np.mean(self.step_time))
+                    # self.step_time.clear()
             else:
                 observation, reward, done, info = self.envs[i].step(a)
             # print("num neighbors: ", len(neighbor_descriptions))
@@ -745,20 +748,20 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
 
-            if self.envs[i].time_remain < 5 * self.control_freq:
-                self.distance_to_goal[i].append(-infos[i]
-                                                ["rewards"]["rewraw_pos"])
 
-            if -infos[i]["rewards"]["rewraw_pos"]/self.envs[0].dt < self.scenario.approch_goal_metric and not self.envs[i].reached_goal:
+            self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
+
+            if not self.reached_goal[i]:
+                self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
+                self.prev_pos[i] = self.envs[i].dynamics.pos
+
+            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) / self.envs[0].dt < self.scenario.approch_goal_metric \
+                    and not self.reached_goal[i]:
                 self.envs[i].reached_goal = True
-                if len(self.flying_time[i]) > 0:
-                    self.reached_goal[i] = True
-                    self.flying_time[i].append(self.envs[i].tick*self.envs[i].dt-self.flying_time[i][-1])
-                else:
-                    self.flying_time[i].append(self.envs[i].tick * self.envs[i].dt)
+                self.reached_goal[i] = True
+                self.flying_time[i] = self.envs[i].tick * self.control_dt
 
-            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i]-self.envs[i].dynamics.pos))
-            self.prev_pos[i] = self.envs[i].dynamics.pos
+
 
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False
@@ -860,13 +863,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.distance_to_goal = np.array(self.distance_to_goal)
             self.flying_trajectory = np.array(self.flying_trajectory)
             self.reached_goal = np.array(self.reached_goal)
-            padded_flying_time = np.zeros(
-                [len(self.flying_time), max(len(max(self.flying_time, key=lambda x: len(x))), 2)])
-            for j, k in enumerate(self.flying_time):
-                padded_flying_time[j][0:len(k)] = k
-            self.flying_time = padded_flying_time[:, 1:]
-            if not np.any(self.reached_goal):
-                self.reached_goal[0] = True
+            self.flying_time = np.array(self.flying_time)
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
                     infos[i]['episode_extra_stats'] = {
@@ -888,8 +885,8 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_final_5_s': self.collisions_final_5s,
                         f'{scenario_name}/num_collisions_final_5_s': self.collisions_final_5s,
 
-                        'flying_trajectory': (1.0 / self.envs[0].dt) * np.mean(self.flying_trajectory[i]),
-                        f'{scenario_name}/flying_trajectory': (1.0 / self.envs[0].dt) * np.mean(self.flying_trajectory[i]),
+                        'flying_trajectory': np.sum(self.flying_trajectory[i]),
+                        f'{scenario_name}/flying_trajectory': np.sum(self.flying_trajectory[i]),
 
                         'flying_time': np.mean(self.flying_time[self.reached_goal]),
                         f'{scenario_name}/flying_time': np.mean(self.flying_time[self.reached_goal]),
@@ -1013,6 +1010,14 @@ class QuadrotorEnvMulti(gym.Env):
                 self.agent_success_rate.append(agent_success_ratio)
                 self.agent_success_rate_dict[scenario_name].append(
                     agent_success_ratio)
+
+                self.flying_trajectory_buffer.append(np.mean(np.sum(self.flying_trajectory[self.reached_goal], axis=-1)))
+                self.flying_time_buffer.append(np.mean(self.flying_time[self.reached_goal]))
+
+                if len(self.flying_trajectory_buffer) % 5 == 0:
+                    print(len(self.flying_trajectory_buffer))
+                    print(np.mean(self.flying_trajectory_buffer))
+                    print(np.mean(self.flying_time_buffer))
 
                 for i in range(len(infos)):
                     # base_no_collision_rate
