@@ -81,5 +81,6 @@ class Scenario_o_static_same_goal(Scenario_o_base):
         # Return the center coordinates of the largest square area as a tuple
         index = center_x + (m * center_y)
         pos_x, pos_y = self.cell_centers[index]
-        pos_z = np.random.uniform(low=0.75, high=3.0)
+        # pos_z = np.random.uniform(low=0.75, high=3.0)
+        pos_z = 2.0
         return np.array([pos_x, pos_y, pos_z])

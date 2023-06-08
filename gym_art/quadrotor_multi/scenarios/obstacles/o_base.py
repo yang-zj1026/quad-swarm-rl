@@ -61,7 +61,8 @@ class Scenario_o_base(QuadrotorScenario):
         width = self.obstacle_map.shape[0]
         index = x + (width * y)
         pos_x, pos_y = self.cell_centers[index]
-        pos_z = np.random.uniform(low=0.75, high=3.0)
+        # pos_z = np.random.uniform(low=0.75, high=3.0)
+        pos_z = 2.0
         # xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
         return np.array([pos_x, pos_y, pos_z])
 
@@ -74,7 +75,8 @@ class Scenario_o_base(QuadrotorScenario):
             width = self.obstacle_map.shape[0]
             index = x + (width * y)
             pos_x, pos_y = self.cell_centers[index]
-            pos_z = np.random.uniform(low=0.75, high=3.0)
+            # pos_z = np.random.uniform(low=0.75, high=3.0)
+            pos_z = 2.0
             generated_points.append(np.array([pos_x, pos_y, pos_z]))
 
         return np.array(generated_points)
