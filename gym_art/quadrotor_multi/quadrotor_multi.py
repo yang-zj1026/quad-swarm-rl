@@ -714,8 +714,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
 
             if not self.reached_goal[i]:
-                self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
-                self.prev_pos[i] = self.envs[i].dynamics.pos
 
                 # vel
                 vel_agent_i = np.linalg.norm(self.envs[i].dynamics.vel)
@@ -746,6 +744,9 @@ class QuadrotorEnvMulti(gym.Env):
                 self.reached_goal[i] = True
                 # tick is calculated by control_dt, not dt
                 self.flying_time[i] = self.envs[i].tick * self.control_dt
+
+            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
+            self.prev_pos[i] = self.envs[i].dynamics.pos
 
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False
