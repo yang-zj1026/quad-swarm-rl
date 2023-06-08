@@ -25,7 +25,6 @@ from gym_art.quadrotor_multi.obstacles.obstacles import MultiObstacles
 from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSceneMulti
 from gym_art.quadrotor_multi.quadrotor_single import QuadrotorSingle
 from gym_art.quadrotor_multi.scenarios.mix import create_scenario
-from gym_art.quadrotor_multi.scenarios.utils import QUADS_MODE_LIST, QUADS_MODE_LIST_OBSTACLES
 
 
 class QuadrotorEnvMulti(gym.Env):
@@ -137,12 +136,11 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_quad_collisions_per_episode = 0
             self.obst_quad_collisions_after_settle = 0
             self.curr_quad_col = []
-            self.obstacle_density = obst_density
+            self.obst_density = obst_density
             self.obst_spawn_area = obst_spawn_area
             self.num_obstacles = int(obst_density * obst_spawn_area[0] * obst_spawn_area[1])
             self.obst_map = None
-            self.obstacle_size = obst_size
-            self.obstacles = MultiObstacles(obstacle_size=self.obstacle_size, quad_radius=self.quad_arm)
+            self.obst_size = obst_size
 
             # Log more info
             self.distance_to_goal_3_5 = 0
@@ -212,6 +210,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
+
         self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
@@ -223,9 +222,11 @@ class QuadrotorEnvMulti(gym.Env):
         self.episode_vel = [[] for _ in range(len(self.envs))]
         self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
+
         # Log metric
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
+
         # roll, pitch, yaw rate (to show the agility)
         # roll
         self.roll_rate = [[] for _ in range(self.num_agents)]
@@ -239,6 +240,7 @@ class QuadrotorEnvMulti(gym.Env):
         # body rate
         self.body_rate = [[] for _ in range(self.num_agents)]
         self.body_rate_max = np.zeros(self.num_agents)
+
 
         # Others
         self.apply_collision_force = True
@@ -362,7 +364,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         room_map = [i for i in range(0, num_room_grids)]
 
-        obst_index = np.random.choice(a=room_map, size=int(num_room_grids * self.obstacle_density), replace=False)
+        obst_index = np.random.choice(a=room_map, size=int(num_room_grids * self.obst_density), replace=False)
 
         obst_pos_arr = []
         # 0: No Obst, 1: Obst
@@ -386,7 +388,7 @@ class QuadrotorEnvMulti(gym.Env):
                     room_dims=self.room_dims, num_agents=self.num_agents,
                     render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
                     vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
+                    num_obstacles=self.num_obstacles, scene_index=i
                 ))
         else:
             for i in range(len(self.quads_view_mode)):
@@ -396,11 +398,18 @@ class QuadrotorEnvMulti(gym.Env):
                     room_dims=self.room_dims, num_agents=self.num_agents,
                     render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
                     vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
+                    num_obstacles=self.num_obstacles, scene_index=i
                 ))
 
-    def reset(self):
+    def reset(self, obst_density=None, obst_size=None):
         obs, rewards, dones, infos = [], [], [], []
+
+        if obst_density:
+            self.obst_density = obst_density
+        if obst_size:
+            self.obst_size = obst_size
+
+        self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm)
 
         # Scenario reset
         if self.use_obstacles:
@@ -454,6 +463,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
+
         self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.flying_trajectory = [[] for _ in range(len(self.envs))]
@@ -477,6 +487,7 @@ class QuadrotorEnvMulti(gym.Env):
         # & no collision drones, drone & obst, drone & wall
         self.episode_vel = [[] for _ in range(len(self.envs))]
         self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
+
 
         # Rendering
         if self.quads_render:
@@ -998,6 +1009,7 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
 
+
             self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.envs[i].goal[:2]))
             self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
             self.prev_pos[i] = self.envs[i].dynamics.pos
@@ -1033,6 +1045,7 @@ class QuadrotorEnvMulti(gym.Env):
                 # tick is calculated by control_dt, not dt
                 self.flying_time[i] = self.envs[i].tick * self.control_dt
 
+
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False
 
@@ -1062,7 +1075,7 @@ class QuadrotorEnvMulti(gym.Env):
                         obstacle_pos = self.obstacles.pos_arr[int(obstacle_id)]
                         perform_collision_with_obstacle(drone_dyn=self.envs[int(val)].dynamics,
                                                         obstacle_pos=obstacle_pos,
-                                                        obstacle_size=self.obstacle_size)
+                                                        obstacle_size=self.obst_size)
 
             # # 4) Room
             if len(wall_crash_list) > 0 or len(ceiling_crash_list) > 0:
@@ -1144,6 +1157,7 @@ class QuadrotorEnvMulti(gym.Env):
                     }
                 else:
                     self.distance_to_goal = np.array(self.distance_to_goal)
+                    self.reached_goal = np.array(self.reached_goal)
                     infos[i]['episode_extra_stats'] = {
                         'num_collisions': self.collisions_per_episode,
                         'num_collisions_with_room': self.collisions_room_per_episode,
@@ -1225,6 +1239,7 @@ class QuadrotorEnvMulti(gym.Env):
 
                 full_success_flag = mid_success_flag & no_col_floor_flag
 
+
                 # agent_success_rate: base_success_rate, based on per agent
                 # 0: collision; 1: no collision
                 agent_col_flag_list = np.logical_and(self.agent_col_agent, self.agent_col_obst)
@@ -1244,6 +1259,7 @@ class QuadrotorEnvMulti(gym.Env):
                 agent_neighbor_col_ratio = 1.0 - np.sum(self.agent_col_agent) / self.num_agents
                 # agent_obst_col_rate
                 agent_obst_col_ratio = 1.0 - np.sum(self.agent_col_obst) / self.num_agents
+
 
                 # Flying traj
                 agent_success_flying_trajectories = self.flying_trajectory[agent_success_flag_list]
@@ -1293,7 +1309,6 @@ class QuadrotorEnvMulti(gym.Env):
                     print("Pitch rate: ", np.mean(self.pitch_rate_buffer))
                     print("Yaw rate: ", np.mean(self.yaw_rate_buffer))
                     print("Body rate: ", np.mean(self.body_rate_buffer))
-
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"
