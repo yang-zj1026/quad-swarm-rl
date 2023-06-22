@@ -31,20 +31,18 @@ GRAV = 9.81  # default gravitational constant
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, pos_prev, min_dist, on_floor=False):
+def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, pos_prev, on_floor=False):
     # Distance to the goal
     dist = np.linalg.norm(goal - dynamics.pos)
-    cost_pos_diff_2_raw = np.max([0.0, min_dist - dist])
-    cost_pos_diff_2 = -1.0 * cost_pos_diff_2_raw
 
     cost_pos_raw = dist
     cost_pos = 0.0 * rew_coeff["pos"] * cost_pos_raw
 
     pre_dist = np.linalg.norm(goal - pos_prev)
     pos_diff = pre_dist - dist
-    cost_pos_diff_raw = -1.0 * pos_diff
+    cost_pos_diff_raw = 1.0 * pos_diff
 
-    cost_pos_diff = 0.0 * cost_pos_diff_raw
+    cost_pos_diff = rew_coeff["pos"] * cost_pos_diff_raw
 
     # Penalize amount of control effort
     cost_effort_raw = np.linalg.norm(action)
@@ -67,7 +65,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_crash = rew_coeff["crash"] * cost_crash_raw
 
     reward = -dt * np.sum([
-        cost_pos_diff_2,
+        cost_pos_diff,
         cost_effort,
         cost_crash,
         cost_orient,
@@ -75,17 +73,15 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     ])
 
     rew_info = {
-        "rew_main": -cost_pos_diff_2,
-        'rew_pos': -cost_pos_diff_2,
+        "rew_main": -cost_pos_diff,
+        'rew_pos': -cost_pos,
         'rew_action': -cost_effort,
         'rew_crash': -cost_crash,
         "rew_orient": -cost_orient,
         "rew_spin": -cost_spin,
 
-        "rewraw_main": -cost_pos_raw,
+        "rewraw_main": -cost_pos_diff_raw,
         'rewraw_pos': -cost_pos_raw,
-        "rewraw_pos_diff": -cost_pos_diff_raw,
-        "rewraw_pos_diff_2": -cost_pos_diff_2_raw,
         'rewraw_action': -cost_effort_raw,
         'rewraw_crash': -cost_crash_raw,
         "rewraw_orient": -cost_orient_raw,
@@ -113,7 +109,8 @@ class QuadrotorSingle:
                  sim_steps=2, obs_repr="xyz_vxyz_R_omega", ep_time=7, room_dims=(10.0, 10.0, 10.0),
                  init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
-                 neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False):
+                 neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
+                 pos_rew_coeff=200):
         np.seterr(under='ignore')
         """
         Args:
@@ -360,7 +357,7 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
-            rew_coeff=self.rew_coeff, action_prev=self.actions[1], pos_prev=self.pos_pre, min_dist=self.dist_to_goal_min,
+            rew_coeff=self.rew_coeff, action_prev=self.actions[1], pos_prev=self.pos_pre,
             on_floor=self.dynamics.on_floor)
 
         self.pos_pre = copy.deepcopy(self.dynamics.pos)

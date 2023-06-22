@@ -4,7 +4,7 @@ import gym
 import numpy as np
 from sample_factory.algo.utils.rl_utils import prepare_and_normalize_obs
 
-from gym_art.quadrotor_multi.tests.plot_v_value_2d import plot_v_value_2d
+from swarm_rl.env_wrappers.plot_v_value_2d import plot_v_value_2d
 
 
 class V_ValueMapWrapper(gym.Wrapper):

@@ -24,6 +24,8 @@ def add_quadrotors_env_args(env, parser):
                    help='Override default value for episode duration')
     p.add_argument('--quads_encoder_type', default="corl", type=str, help='The type of the neighborhood encoder')
 
+    p.add_argument('--quads_pos_rew_coeff', default=200, type=int, help='The coeff of position reward')
+
     # Neighbor
     # Neighbor Features
     p.add_argument('--quads_neighbor_visible_num', default=-1, type=int, help='Number of neighbors to consider. -1=all '

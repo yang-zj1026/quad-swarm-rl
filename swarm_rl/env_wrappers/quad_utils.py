@@ -63,6 +63,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         dynamics_params=quad, raw_control=raw_control, raw_control_zero_middle=raw_control_zero_middle,
         dynamics_randomize_every=dyn_randomize_every, dynamics_change=dynamics_change, dyn_sampler_1=sampler_1,
         sense_noise=sense_noise, init_random_state=False,
+        # Reward
+        pos_rew_coeff=cfg.quads_pos_rew_coeff,
     )
 
     if use_replay_buffer:
