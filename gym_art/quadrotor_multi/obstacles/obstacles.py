@@ -13,7 +13,7 @@ class MultiObstacles:
         self.resolution = 0.1
 
     def reset(self, obs, quads_pos, pos_arr):
-        self.pos_arr = copy.deepcopy(np.array(pos_arr))
+        self.pos_arr = copy.deepcopy(pos_arr)
 
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
