@@ -344,10 +344,7 @@ class QuadrotorEnvMulti(gym.Env):
             rid, cid = idx // obst_area_width, idx - (idx // obst_area_width) * obst_area_width
             obst_item = cell_centers[rid + int(obst_area_length / grid_size) * cid]
             obst_item = np.append(obst_item, self.room_dims[2] / 2.)
-            # add random noise to xy-coordinate
-            xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
-            obst_item[0] += xy_noise[0]
-            obst_item[1] += xy_noise[1]
+
             # If the distance between the point and any point in the subset is less than the threshold, then skip the point.
             if any(distance - self.obst_size < self.obst_min_gap for distance in
                    [np.linalg.norm(obst_item - other) for other in obst_pos_arr]):
