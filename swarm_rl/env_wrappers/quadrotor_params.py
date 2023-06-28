@@ -95,7 +95,8 @@ def add_quadrotors_env_args(env, parser):
                             'ep_lissajous3D', 'ep_rand_bezier', 'swarm_vs_swarm', 'swap_goals', 'dynamic_formations',
                             'mix', 'o_uniform_same_goal_spawn', 'o_random',
                             'o_dynamic_diff_goal', 'o_dynamic_same_goal', 'o_diagonal', 'o_static_same_goal',
-                            'o_static_diff_goal', 'o_swap_goals'], help='Choose which scenario to run. ep = evader pursuit')
+                            'o_static_diff_goal', 'o_swap_goals', 'o_poly_spline'],
+                   help='Choose which scenario to run. ep = evader pursuit')
 
     # Room
     p.add_argument('--quads_room_dims', nargs='+', default=[10., 10., 10.], type=float,
