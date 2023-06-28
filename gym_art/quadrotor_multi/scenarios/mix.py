@@ -22,7 +22,6 @@ from gym_art.quadrotor_multi.scenarios.obstacles.o_random import Scenario_o_rand
 from gym_art.quadrotor_multi.scenarios.obstacles.o_static_same_goal import Scenario_o_static_same_goal
 from gym_art.quadrotor_multi.scenarios.obstacles.o_dynamic_same_goal import Scenario_o_dynamic_same_goal
 from gym_art.quadrotor_multi.scenarios.obstacles.o_swap_goals import Scenario_o_swap_goals
-from gym_art.quadrotor_multi.scenarios.obstacles.o_poly_spline import Scenario_o_poly_spline
 
 # Test Scenarios
 from gym_art.quadrotor_multi.scenarios.test.o_test import Scenario_o_test

@@ -15,5 +15,5 @@ python -m swarm_rl.train \
 --normalize_input=False --normalize_returns=False --reward_clip=10 \
 --quads_use_obstacles=True --quads_obst_collision_reward=5.0 \
 --quads_obst_size=0.6 --quads_obst_density=0.6 --quads_obst_spawn_area 8 8 --quads_obstacle_obs_type=octomap \
---quads_use_obst_min_gap=False --quads_obst_min_gap=0.5 \
+--quads_use_obst_min_gap=False --quads_obst_min_gap=0.5 --quads_pos_reward=2.0 \
 --experiment=test_obst_spawn
