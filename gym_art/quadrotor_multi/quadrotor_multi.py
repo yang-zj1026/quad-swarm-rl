@@ -321,11 +321,11 @@ class QuadrotorEnvMulti(gym.Env):
             obst_item = list(cell_centers[rid + int(obst_area_length / grid_size) * cid])
             obst_item.append(self.room_dims[2] / 2.)
 
-            # add random noise to xy-coordinate
-            xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
-            obst_item[0] += xy_noise[0]
-            obst_item[1] += xy_noise[1]
-            obst_pos_arr.append(obst_item)
+            # # add random noise to xy-coordinate
+            # xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
+            # obst_item[0] += xy_noise[0]
+            # obst_item[1] += xy_noise[1]
+            # obst_pos_arr.append(obst_item)
 
         obst_pos_arr = np.array(obst_pos_arr)
         return obst_map, obst_pos_arr, cell_centers
@@ -346,6 +346,11 @@ class QuadrotorEnvMulti(gym.Env):
             rid, cid = idx // obst_area_width, idx - (idx // obst_area_width) * obst_area_width
             obst_item = cell_centers[rid + int(obst_area_length / grid_size) * cid]
             obst_item = np.append(obst_item, self.room_dims[2] / 2.)
+
+            # add random noise to xy-coordinate
+            xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
+            obst_item[0] += xy_noise[0]
+            obst_item[1] += xy_noise[1]
 
             # If the distance between the point and any point in the subset is less than the threshold, then skip the point.
             if any(distance - self.obst_size < self.obst_min_gap for distance in
@@ -390,7 +395,7 @@ class QuadrotorEnvMulti(gym.Env):
         # Scenario reset
         if self.use_obstacles:
             if self.use_obst_min_gap:
-                self.obst_map, obst_pos_arr, cell_centers = self.generate_obst_with_min_gap()
+                self.obst_map, obst_pos_arr, cell_centers = self.generate_obst_with_min_gap(debug=True)
             else:
                 self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
             self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
@@ -727,7 +732,7 @@ class QuadrotorEnvMulti(gym.Env):
                 agent_col_flag_list = np.logical_and(self.agent_col_agent, self.agent_col_obst)
                 agent_success_flag_list = np.logical_and(agent_col_flag_list, self.reached_goal)
                 agent_success_ratio = 1.0 * np.sum(agent_success_flag_list) / self.num_agents
-                self.agent_success_rate_buffer.append(agent_success_ratio)
+                # self.agent_success_rate_buffer.append(agent_success_ratio)
                 # if len(self.agent_success_rate_buffer) % 10 == 0:
                 #     print('Agent_success_rate: ', np.mean(self.agent_success_rate_buffer))
 
