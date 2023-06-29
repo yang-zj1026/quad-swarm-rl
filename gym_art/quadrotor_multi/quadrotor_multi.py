@@ -204,6 +204,8 @@ class QuadrotorEnvMulti(gym.Env):
         # Others
         self.apply_collision_force = True
 
+        # self.agent_success_rate_buffer = deque([], maxlen=100)
+
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
 
@@ -725,6 +727,9 @@ class QuadrotorEnvMulti(gym.Env):
                 agent_col_flag_list = np.logical_and(self.agent_col_agent, self.agent_col_obst)
                 agent_success_flag_list = np.logical_and(agent_col_flag_list, self.reached_goal)
                 agent_success_ratio = 1.0 * np.sum(agent_success_flag_list) / self.num_agents
+                self.agent_success_rate_buffer.append(agent_success_ratio)
+                # if len(self.agent_success_rate_buffer) % 10 == 0:
+                #     print('Agent_success_rate: ', np.mean(self.agent_success_rate_buffer))
 
                 # agent_deadlock_rate
                 # Doesn't approach to the goal while no collisions with other objects

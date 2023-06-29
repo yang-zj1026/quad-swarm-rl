@@ -12,12 +12,12 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
         self.approch_goal_metric = 1.0
 
-        self.max_dist = 5.0
+        self.max_dist = 4.0
 
     def step(self):
         tick = self.envs[0].tick
 
-        if tick % self.control_step_for_sec == 0:
+        if tick % self.control_step_for_sec == 0 or tick == 1:
             new_goal = self.generate_pos_obst_map()
             while np.linalg.norm(self.end_point - new_goal) > self.max_dist:
                 new_goal = self.generate_pos_obst_map()
@@ -41,7 +41,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         self.free_space = list(zip(*obst_map_locs))
 
         self.start_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
-        self.end_point = self.generate_pos_obst_map()
+        self.end_point = self.max_square_area_center()
 
         # Reset formation and related parameters
         self.update_formation_and_relate_param()
