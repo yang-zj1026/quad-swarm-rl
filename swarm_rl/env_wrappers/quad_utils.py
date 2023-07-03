@@ -6,6 +6,7 @@ import torch
 
 from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
 from swarm_rl.env_wrappers.additional_input import QuadsAdditionalInputWrapper
+from swarm_rl.env_wrappers.automatic_domain_randomization import QuadEnvADR
 from swarm_rl.env_wrappers.discrete_actions import QuadsDiscreteActionsWrapper
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper, \
     DEFAULT_QUAD_REWARD_SHAPING_SINGLE
@@ -67,9 +68,10 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     )
 
     if use_replay_buffer:
-        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.quads_obst_density, cfg.quads_obst_size,
-                                      cfg.quads_domain_random, cfg.quads_obst_density_random, cfg.quads_obst_size_random,
-                                      cfg.quads_obst_density_min, cfg.quads_obst_density_max, cfg.quads_obst_size_min, cfg.quads_obst_size_max)
+        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
+
+    if cfg.quads_domain_random:
+        env = QuadEnvADR(env, cfg.quads_obst_size, 0.05)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
