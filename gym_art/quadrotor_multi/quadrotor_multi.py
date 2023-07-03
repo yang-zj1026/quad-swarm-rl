@@ -325,7 +325,7 @@ class QuadrotorEnvMulti(gym.Env):
             # xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
             # obst_item[0] += xy_noise[0]
             # obst_item[1] += xy_noise[1]
-            # obst_pos_arr.append(obst_item)
+            obst_pos_arr.append(obst_item)
 
         obst_pos_arr = np.array(obst_pos_arr)
         return obst_map, obst_pos_arr, cell_centers
