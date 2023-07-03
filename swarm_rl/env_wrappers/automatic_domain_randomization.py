@@ -50,8 +50,10 @@ class QuadEnvADR(gym.Wrapper):
         obs, reward, dones, infos = self.env.step(action)
 
         if any(dones):
-            infos['episode_extra_stats']['obst_size'] = self.curr_obst_size
-            self.obst_size_buffer.append(infos['episode_extra_stats']['metric/agent_success_rate'])
+            for i in range(len(infos)):
+                infos[i]['episode_extra_stats']['obst_size'] = self.curr_obst_size
+
+            self.obst_size_buffer.append(infos[0]['episode_extra_stats']['metric/agent_success_rate'])
             if len(self.obst_size_buffer) == 50:
                 avg_perf = np.mean(self.obst_size_buffer)
 
