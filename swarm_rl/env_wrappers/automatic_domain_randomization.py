@@ -16,7 +16,7 @@ class QuadEnvADR(gym.Wrapper):
         # self.obst_density_low, self.obst_density_high = obst_density_init, obst_density_init
         # self.obst_density_step = obst_density_step
 
-        self.obst_size_buffer = deque(maxlen=50)
+        self.obst_size_buffer = deque(maxlen=30)
         self.perf_threshold_low = 0.8
         self.perf_threshold_high = 0.9
 
@@ -53,7 +53,8 @@ class QuadEnvADR(gym.Wrapper):
             for i in range(len(infos)):
                 infos[i]['episode_extra_stats']['obst_size'] = self.curr_obst_size
 
-            self.obst_size_buffer.append(infos[0]['episode_extra_stats']['metric/agent_success_rate'])
+            if 'metric/agent_success_rate' in infos[0]['episode_extra_stats']:
+                self.obst_size_buffer.append(infos[0]['episode_extra_stats']['metric/agent_success_rate'])
             if len(self.obst_size_buffer) == 50:
                 avg_perf = np.mean(self.obst_size_buffer)
 
