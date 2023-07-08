@@ -49,7 +49,7 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
         self.episode_actions = []
         return obs
 
-    def step(self, action):
+    def step(self, action, value_pred=None):
         self.episode_actions.append(action)
 
         if self.reward_shaping_updated:
@@ -60,7 +60,7 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
 
             self.reward_shaping_updated = False
 
-        obs, rewards, dones, infos = self.env.step(action)
+        obs, rewards, dones, infos = self.env.step(action, value_pred)
         if self.env.is_multiagent:
             infos_multi, dones_multi = infos, dones
         else:

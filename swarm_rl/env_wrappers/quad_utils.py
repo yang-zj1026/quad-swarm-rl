@@ -67,9 +67,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     )
 
     if use_replay_buffer:
-        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.quads_obst_density, cfg.quads_obst_size,
-                                      cfg.quads_domain_random, cfg.quads_obst_density_random, cfg.quads_obst_size_random,
-                                      cfg.quads_obst_density_min, cfg.quads_obst_density_max, cfg.quads_obst_size_min, cfg.quads_obst_size_max)
+        env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.use_curriculum_learning, cfg.gamma, cfg.gae_lambda)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
