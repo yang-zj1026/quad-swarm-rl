@@ -27,7 +27,7 @@ class ReplayBuffer:
         self.buffer_idx = 0
         self.buffer = deque([], maxlen=buffer_size)
 
-        self.beta = 0.1  # temperature in computing score distribution
+        self.beta = 0.5  # temperature in computing score distribution
         self.rho = 0.1  # staleness coefficient in mixing two distributions
 
     def write_cp_to_buffer(self, env, obs):
