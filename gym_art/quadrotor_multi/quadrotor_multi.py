@@ -3,7 +3,7 @@ import time
 from collections import deque
 from copy import deepcopy
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from gym_art.quadrotor_multi.aerodynamics.downwash import perform_downwash
@@ -410,7 +410,10 @@ class QuadrotorEnvMulti(gym.Env):
 
         for i, e in enumerate(self.envs):
             e.goal = self.scenario.goals[i]
-            e.spawn_point = self.scenario.spawn_points[i]
+            if self.scenario.spawn_points is None:
+                e.spawn_point = self.scenario.goals[i]
+            else:
+                e.spawn_point = self.scenario.spawn_points[i]
             e.rew_coeff = self.rew_coeff
 
             observation = e.reset()
