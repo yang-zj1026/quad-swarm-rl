@@ -20,15 +20,15 @@ class ReplayBufferEvent:
 
 
 class ReplayBuffer:
-    def __init__(self, control_frequency, cp_step_size=0.5, buffer_size=20):
+    def __init__(self, control_frequency, beta, rho, cp_step_size=0.5, buffer_size=20):
         self.control_frequency = control_frequency
         self.cp_step_size_sec = cp_step_size  # how often (seconds) a checkpoint is saved
         self.cp_step_size_freq = self.cp_step_size_sec * self.control_frequency
         self.buffer_idx = 0
         self.buffer = deque([], maxlen=buffer_size)
 
-        self.beta = 0.5  # temperature in computing score distribution
-        self.rho = 0.1  # staleness coefficient in mixing two distributions
+        self.beta = beta  # temperature in computing score distribution
+        self.rho = rho  # staleness coefficient in mixing two distributions
 
     def write_cp_to_buffer(self, env, obs):
         """
@@ -116,9 +116,10 @@ class ReplayBuffer:
 
 
 class ExperienceReplayWrapper(gym.Wrapper):
-    def __init__(self, env, replay_buffer_sample_prob=0.0, use_curriculum=False, gamma=None, gae_lambda=None):
+    def __init__(self, env, replay_buffer_sample_prob=0.0, use_curriculum=False, gamma=None, gae_lambda=None,
+                 beta=0.5, rho=0.1):
         super().__init__(env)
-        self.replay_buffer = ReplayBuffer(env.envs[0].control_freq)
+        self.replay_buffer = ReplayBuffer(env.envs[0].control_freq, beta, rho)
         self.replay_buffer_sample_prob = replay_buffer_sample_prob
 
         self.max_episode_checkpoints_to_keep = int(3.0 / self.replay_buffer.cp_step_size_sec)  # keep only checkpoints from the last 3 seconds

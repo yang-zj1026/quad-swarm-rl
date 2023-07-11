@@ -123,3 +123,7 @@ def add_quadrotors_env_args(env, parser):
 
     # Sim2Real
     p.add_argument('--quads_sim2real', default=False, type=str2bool, help='Use sim2real or not')
+
+    # Curriculum
+    p.add_argument('--curriculum_beta', default=0.5, type=float, help='Beta in calculating the score distribution')
+    p.add_argument('--curriculum_rho', default=0.1, type=float, help='Rho in calculating the staleness distribution')
