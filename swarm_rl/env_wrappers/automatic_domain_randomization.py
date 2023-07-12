@@ -38,6 +38,7 @@ class QuadEnvADR(gym.Wrapper):
             self.curr_obst_size = self.obst_size_low
         else:
             self.curr_obst_size = self.obst_size_high
+        print("Obstacle size in the new episode: ", self.curr_obst_size)
         return self.env.reset(obst_size=self.curr_obst_size)
 
     def step(self, action):
@@ -68,5 +69,7 @@ class QuadEnvADR(gym.Wrapper):
                     self.obst_size_high = self.obst_size_high + self.obst_size_step
 
                 self.obst_size_buffer.clear()
+            else:
+                print("Not enough episodes to update obstacle size, current buffer size: ", len(self.obst_size_buffer))
 
         return obs, reward, dones, infos
