@@ -75,6 +75,8 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_use_obst_min_gap', default=False, type=str2bool, help='Enable obstacle minimum gap or not')
     p.add_argument('--quads_obst_min_gap', default=0.5, type=float, help='The minimum gap between obstacles')
 
+    p.add_argument('--adr_buffer_len', default=10, type=int, help='The size of the buffer for ADR')
+
     # # Obstacle Encoder
     p.add_argument('--quads_obst_hidden_size', default=256, type=int, help='The hidden size for the obstacle encoder')
     p.add_argument('--quads_obst_encoder_type', default='mlp', type=str, help='The type of the obstacle encoder')
@@ -123,3 +125,4 @@ def add_quadrotors_env_args(env, parser):
 
     # Sim2Real
     p.add_argument('--quads_sim2real', default=False, type=str2bool, help='Use sim2real or not')
+

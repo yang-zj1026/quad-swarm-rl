@@ -7,7 +7,8 @@ from gym.utils.step_api_compatibility import convert_to_terminated_truncated_ste
 
 # Wrapper for Automatic Domain Randomization
 class QuadEnvADR(gym.Wrapper):
-    def __init__(self, env, obst_size_init, obst_size_step):
+    def __init__(self, env, obst_size_init, obst_size_step, buffer_max_len=10, perf_threshold_low=0.8,
+                 perf_threshold_high=0.9):
         """A wrapper which implements automatic domain randomization."""
         super().__init__(env)
         self.obst_size_init = obst_size_init
@@ -16,10 +17,10 @@ class QuadEnvADR(gym.Wrapper):
         # self.obst_density_low, self.obst_density_high = obst_density_init, obst_density_init
         # self.obst_density_step = obst_density_step
 
-        self.buffer_max_len = 30
+        self.buffer_max_len = buffer_max_len
         self.obst_size_buffer = deque(maxlen=self.buffer_max_len)
-        self.perf_threshold_low = 0.8
-        self.perf_threshold_high = 0.9
+        self.perf_threshold_low = perf_threshold_low
+        self.perf_threshold_high = perf_threshold_high
 
         self.curr_obst_size = None
 

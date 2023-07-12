@@ -67,11 +67,11 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sense_noise=sense_noise, init_random_state=False, pos_rew_coeff=cfg.quads_pos_reward,
     )
 
+    if cfg.quads_domain_random:
+        env = QuadEnvADR(env, cfg.quads_obst_size, 0.05, buffer_max_len=cfg.adr_buffer_len,)
+
     if use_replay_buffer:
         env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
-
-    if cfg.quads_domain_random:
-        env = QuadEnvADR(env, cfg.quads_obst_size, 0.05)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
