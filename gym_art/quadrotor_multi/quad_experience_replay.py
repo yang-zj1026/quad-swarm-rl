@@ -86,10 +86,10 @@ class ExperienceReplayWrapper(gym.Wrapper):
         """
         self.episode_checkpoints.append((deepcopy(self.env), deepcopy(obs)))
 
-    def reset(self, obst_density=None, obst_size=None):
+    def reset(self):
         """For reset we just use the default implementation."""
 
-        return self.env.reset(obst_density, obst_size)
+        return self.env.reset()
 
     def step(self, action):
         obs, rewards, dones, infos = self.env.step(action)
