@@ -76,6 +76,8 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_min_gap', default=0.5, type=float, help='The minimum gap between obstacles')
 
     p.add_argument('--adr_buffer_len', default=10, type=int, help='The size of the buffer for ADR')
+    p.add_argument('--adr_perf_threshold_low', default=0.25, type=float, help='The lower bound of the performance threshold for ADR')
+    p.add_argument('--adr_perf_threshold_high', default=0.75, type=float, help='The upper bound of the performance threshold for ADR')
 
     # # Obstacle Encoder
     p.add_argument('--quads_obst_hidden_size', default=256, type=int, help='The hidden size for the obstacle encoder')
