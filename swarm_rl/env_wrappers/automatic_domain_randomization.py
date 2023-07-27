@@ -72,7 +72,5 @@ class QuadEnvADR(gym.Wrapper):
 
                 # Send a signal to replay buffer to clear it
                 infos[0]['episode_extra_stats']['clear_replay_buffer'] = True
-            else:
-                print("Not enough episodes to update obstacle size, current buffer size: ", len(self.obst_size_buffer))
 
         return obs, reward, dones, infos
