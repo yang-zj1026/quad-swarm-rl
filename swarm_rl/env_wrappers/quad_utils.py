@@ -68,7 +68,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     )
 
     if cfg.quads_domain_random:
-        env = QuadEnvADR(env, cfg.quads_obst_size, 0.05, buffer_max_len=cfg.adr_buffer_len,)
+        env = QuadEnvADR(env, cfg.quads_obst_size, 0.05, buffer_max_len=cfg.adr_buffer_len,
+                         perf_threshold_low=cfg.adr_perf_threshold_low, perf_threshold_high=cfg.adr_perf_threshold_high)
 
     if use_replay_buffer:
         env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob)
