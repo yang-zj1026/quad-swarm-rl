@@ -4,6 +4,7 @@ from swarm_rl.runs.obstacles.quad_obstacle_baseline import QUAD_BASELINE_CLI_8
 _params = ParamGrid(
     [
         ("seed", [0000, 1111]),
+        ("train_for_env_steps", [2000000000]),
         ("quads_obst_size", [0.2, 0.4]),
     ]
 )

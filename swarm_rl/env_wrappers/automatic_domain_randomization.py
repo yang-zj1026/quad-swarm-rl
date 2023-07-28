@@ -58,19 +58,24 @@ class QuadEnvADR(gym.Wrapper):
 
             if 'metric/agent_success_rate' in infos[0]['episode_extra_stats']:
                 self.obst_size_buffer.append(infos[0]['episode_extra_stats']['metric/agent_success_rate'])
+
+            infos[0]['episode_extra_stats']['clear_replay_buffer'] = False
+
             if len(self.obst_size_buffer) == self.buffer_max_len:
                 avg_perf = np.mean(self.obst_size_buffer)
 
                 if avg_perf <= self.perf_threshold_low:
                     self.obst_size_low = max(self.obst_size_low - self.obst_size_step, self.obst_size_init)
                     self.obst_size_high = max(self.obst_size_high - self.obst_size_step, self.obst_size_init + 0.05)
+                    # Send a signal to replay buffer to clear it
+                    infos[0]['episode_extra_stats']['clear_replay_buffer'] = True
+
                 elif avg_perf >= self.perf_threshold_high:
                     self.obst_size_low = self.obst_size_low + self.obst_size_step
                     self.obst_size_high = self.obst_size_high + self.obst_size_step
+                    # Send a signal to replay buffer to clear it
+                    infos[0]['episode_extra_stats']['clear_replay_buffer'] = True
 
                 self.obst_size_buffer.clear()
-
-                # Send a signal to replay buffer to clear it
-                infos[0]['episode_extra_stats']['clear_replay_buffer'] = True
 
         return obs, reward, dones, infos

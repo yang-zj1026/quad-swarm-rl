@@ -99,6 +99,11 @@ class ExperienceReplayWrapper(gym.Wrapper):
         obs, rewards, dones, infos = self.env.step(action)
 
         if any(dones):
+            # Clear the buffer if obstacles size is changed
+            if infos[0]['episode_extra_stats']['clear_replay_buffer']:
+                self.replay_buffer.clear()
+            obs = self.new_episode()
+
             for i in range(len(infos)):
                 if not infos[i]["episode_extra_stats"]:
                     infos[i]["episode_extra_stats"] = dict()
@@ -110,11 +115,6 @@ class ExperienceReplayWrapper(gym.Wrapper):
                     f"{tag}/replay_buffer_size": len(self.replay_buffer),
                     f"{tag}/avg_replayed": self.replay_buffer.avg_num_replayed(),
                 })
-
-            # Clear the buffer if obstacles size is changed
-            if infos[0]['episode_extra_stats']['clear_replay_buffer']:
-                self.replay_buffer.clear()
-            obs = self.new_episode()
 
         else:
             if self.env.use_replay_buffer and self.env.activate_replay_buffer and not self.env.saved_in_replay_buffer \
