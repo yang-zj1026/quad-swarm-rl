@@ -1,10 +1,11 @@
 import sys
 import torch
-import torch.nn as nn
+from torch.distributions import Normal
+from torch.distributions.kl import kl_divergence
 
 from sample_factory.algo.utils.make_env import NonBatchedVecEnv
 from sample_factory.cfg.arguments import parse_sf_args
-from sample_factory.model.actor_critic import default_make_actor_critic_func
+from sample_factory.model.actor_critic import default_make_actor_critic_func, create_actor_critic
 from swarm_rl.env_wrappers.quad_utils import make_quadrotor_env
 from swarm_rl.env_wrappers.quadrotor_params import add_quadrotors_env_args, quadrotors_override_defaults
 from swarm_rl.models.quad_multi_model import register_models
@@ -40,20 +41,15 @@ def make_model(cfg, obs_space, action_space, sim2real=False):
 
     if sim2real:
         cfg.quads_sim2real = True
+        cfg.rnn_size = 10
 
-    model = default_make_actor_critic_func(cfg, obs_space, action_space)
+    model = create_actor_critic(cfg, obs_space, action_space)
 
     return model
 
 
-class DistillationLoss(nn.Module):
-    def __init__(self, temperature=1.0):
-        super(DistillationLoss, self).__init__()
-        self.temperature = temperature
-
-    def forward(self, student_probs, teacher_probs):
-        # Compute the distillation loss using the KL divergence
-        # between student and teacher policy probabilities
-        kl_loss = -torch.sum(teacher_probs * torch.log(student_probs / (teacher_probs + 1e-8)), dim=-1)
-        loss = torch.mean(kl_loss * self.temperature * self.temperature)
-        return loss
+def _kl(teacher_dist_params, student_dist_params):
+    pi = Normal(loc=teacher_dist_params[0], scale=teacher_dist_params[1])
+    pi_new = Normal(student_dist_params[0], scale=student_dist_params[1])
+    kl = torch.mean(kl_divergence(pi, pi_new))
+    return kl

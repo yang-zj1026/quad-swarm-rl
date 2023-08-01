@@ -1,15 +1,15 @@
 import argparse
 import os
 import random
-import time
-from distutils.util import strtobool
 import logging
 import numpy as np
 
 import torch
-import torch.nn.functional as F
-import torch.optim as optim
-from policy_distillation.utils import parse_swarm_cfg, make_env_non_batched, make_model, DistillationLoss
+from policy_distillation.student import Student
+from policy_distillation.teacher import Teacher
+from policy_distillation.utils import parse_swarm_cfg, make_env_non_batched, make_model
+from swarm_rl.env_wrappers.quad_utils import make_quadrotor_env
+from sample_factory.utils.utils import str2bool
 from torch.utils.tensorboard import SummaryWriter
 
 from swarm_rl.utils import timeStamped
@@ -18,115 +18,65 @@ from swarm_rl.utils import timeStamped
 def args_parse():
     parser = argparse.ArgumentParser(description='Policy distillation')
     # Network, env, MDP, seed
-    parser.add_argument('--env', default="QuadSwarm", metavar='G',
-                        help='name of the environment to run')
-    parser.add_argument('--gamma', type=float, default=0.995, metavar='G',
-                        help='discount factor (default: 0.995)')
-    parser.add_argument('--tau', type=float, default=0.97, metavar='G',
-                        help='gae (default: 0.97)')
-    parser.add_argument('--seed', type=int, default=1, metavar='N',
-                        help='random seed (default: 1)')
-    parser.add_argument('--load-models', action='store_true',
-                        help='load_pretrained_models')
+    parser.add_argument('--env', default="quadrotor_multi", help='name of the environment to run')
+    parser.add_argument('--gamma', type=float, default=0.995, help='discount factor (default: 0.995)')
+    parser.add_argument('--tau', type=float, default=0.97, help='gae (default: 0.97)')
+    parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
+    parser.add_argument('--load-models', action='store_true', help='load_pretrained_models')
 
-    # Teacher policy training
-    parser.add_argument('--agent-count', type=int, default=10, metavar='N',
-                        help='number of agents (default: 100)')
-    parser.add_argument('--num-teachers', type=int, default=1, metavar='N',
+    # Teacher policy
+    parser.add_argument('--teacher_model_path', default='teacher.pth',
+                        help='The path to load teacher model')
+    parser.add_argument('--num_agents', type=int, default=12, metavar='N',
+                        help='number of agents (default: 10)')
+    parser.add_argument('--num_teachers', type=int, default=1, metavar='N',
                         help='number of teacher policies (default: 1)')
-    parser.add_argument('--max-kl', type=float, default=1e-2, metavar='G',
-                        help='max kl value (default: 1e-2)')
-    parser.add_argument('--cg-damping', type=float, default=1e-2, metavar='G',
-                        help='damping for conjugate gradient (default: 1e-2)')
-    parser.add_argument('--cg-iter', type=int, default=10, metavar='G',
-                        help='maximum iteration of conjugate gradient (default: 1e-1)')
-    parser.add_argument('--l2-reg', type=float, default=1e-3, metavar='G',
-                        help='l2 regularization parameter for critics (default: 1e-3)')
-    parser.add_argument('--teacher-batch-size', type=int, default=1000, metavar='N',
-                        help='per-iteration batch size for each agent (default: 1000)')
-    parser.add_argument('--sample-batch-size', type=int, default=10000, metavar='N',
+    parser.add_argument('--sample_batch_size', type=int, default=10000, metavar='N',
                         help='expert batch size for each teacher (default: 10000)')
-    parser.add_argument('--render', action='store_true',
-                        help='render the environment')
-    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
-                        help='interval between training status logs (default: 10)')
-    parser.add_argument('--device', type=str, default='cpu',
-                        help='set the device (cpu or cuda)')
-    parser.add_argument('--num-workers', type=int, default=10,
+    parser.add_argument('--num_workers', type=int, default=12,
                         help='number of workers for parallel computing')
-    parser.add_argument('--num-teacher-episodes', type=int, default=10, metavar='N',
-                        help='num of teacher training episodes (default: 100)')
 
     # Student policy training
     parser.add_argument('--lr', type=float, default=1e-3, metavar='G',
-                        help='adam learnig rate (default: 1e-3)')
-    parser.add_argument('--test-interval', type=int, default=10, metavar='N',
+                        help='learnig rate (default: 1e-3)')
+    parser.add_argument('--test_interval', type=int, default=5, metavar='N',
                         help='interval between training status logs (default: 10)')
-    parser.add_argument('--student-batch-size', type=int, default=1000, metavar='N',
+    parser.add_argument('--student_batch_size', type=int, default=1000, metavar='N',
                         help='per-iteration batch size for student (default: 1000)')
-    parser.add_argument('--sample-interval', type=int, default=10, metavar='N',
+    parser.add_argument('--sample_interval', type=int, default=10, metavar='N',
                         help='frequency to update expert data (default: 10)')
-    parser.add_argument('--testing-batch-size', type=int, default=10000, metavar='N',
+    parser.add_argument('--testing_batch_size', type=int, default=10000, metavar='N',
                         help='batch size for testing student policy (default: 10000)')
-    parser.add_argument('--num-student-episodes', type=int, default=1000, metavar='N',
-                        help='num of teacher training episodes (default: 1000)')
-    parser.add_argument('--loss-metric', type=str, default='kl',
-                        help='metric to build student objective')
-    parser.add_argument('--algo', type=str, default='sgd',
-                        help='update method')
+    parser.add_argument('--num_student_episodes', type=int, default=1000, metavar='N',
+                        help='num of student training episodes (default: 1000)')
 
-    args = parser.parse_args()
+    # Training
+    parser.add_argument('--train_dir', default='train_dir', help='directory to save agent logs (default: train_dir)')
+    parser.add_argument('--experiment', default='policy_distillation', help='name of the experiment')
+    parser.add_argument('--track', default=False, type=str2bool, help='whether to log using wandb')
+
+    args, _ = parser.parse_known_args()
     return args
 
 
-def policy_distillation(args, teacher_model, student_model, env, epochs=1000, batch_size=64, lr=0.001, distillation_weight=0.1):
-    """Distill policy from teacher to student"""
-    optimizer = optim.Adam(student_model.parameters(), lr=args.learning_rate, eps=1e-5)
-    distillation_criterion = DistillationLoss()
+def policy_distillation(teacher, student, writer, args):
+    for ep in range(args.num_student_episodes):
+        if ep % args.sample_interval == 0:
+            expert_data, expert_reward = teacher.get_expert_sample()
+        loss = student.train(expert_data)
+        writer.add_scalar('KL loss', loss.data, ep)
+        print('Episode {}, KL loss: {:.2f}'.format(ep, loss.data))
 
-    total_reward = 0
-    obs = env.reset()
-    done = False
-    for epoch in range(epochs):
-        while not done:
-            observations, actions, rewards, dones, log_probs = [], [], [], [], []
-            for _ in range(batch_size):
-                obs = torch.FloatTensor(obs).unsqueeze(0)
-                with torch.no_grad():
-                    teacher_probs = F.softmax(teacher_model(obs), dim=1)
-                student_probs = F.softmax(student_model(obs), dim=1)
-                action = torch.multinomial(student_probs, 1).item()  # Sample an action from student's policy
+        if ep % args.test_interval == 0:
+            average_reward = student.test()
+            writer.add_scalar('Students_average_reward', average_reward, ep)
+            writer.add_scalar('teacher_reward', expert_reward, ep)
+            print("Students_average_reward: {:.3f} (teacher_reaward:{:3f})".format(average_reward, expert_reward))
 
-                next_obs, reward, done, _ = env.step(action)
+    print('Training student policy finished!')
 
-                observations.append(obs)
-                actions.append(torch.LongTensor([action]))
-                rewards.append(reward)
-                dones.append(done)
-                log_probs.append(torch.log(student_probs[0, action]))
-
-                total_reward += reward
-                obs = next_obs
-
-                if done:
-                    break
-
-            observations = torch.cat(observations)
-            rewards = torch.FloatTensor(rewards)
-            dones = torch.FloatTensor(dones)
-
-            # TODO: Unsqueeze obs, actions, rewards, dones
-
-
-            with torch.no_grad():
-                teacher_probs = F.softmax(teacher_model(observations), dim=1)
-
-            student_probs = F.softmax(student_model(observations), dim=1)
-
-            optimizer.zero_grad()
-            distillation_loss = distillation_criterion(student_probs, teacher_probs)
-            distillation_loss.backward()
-            optimizer.step()
+    # Save student policy
+    student.save_model()
 
 
 def main():
@@ -148,18 +98,18 @@ def main():
         )
 
     # Setup logger
-    exp_dir = os.path.join(args.train_dir, run_name)
+    exp_dir = os.path.join(os.getcwd(), args.train_dir, run_name)
+    if not os.path.isdir(exp_dir):
+        os.makedirs(exp_dir)
+
     writer = SummaryWriter(exp_dir)
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    if args.use_sf:
-        from sample_factory.utils.utils import log
-    else:
-        log = logging.getLogger('rl')
-        log.setLevel(logging.DEBUG)
+    log = logging.getLogger('rl')
+    log.setLevel(logging.DEBUG)
 
     # TRY NOT TO MODIFY: seeding
     if args.seed is None:
@@ -169,29 +119,40 @@ def main():
         random.seed(0)
     else:
         log.debug(f"Setting fixed seed {args.seed}")
-        torch.manual_seed(cfg.seed)
-        np.random.seed(cfg.seed)
-        random.seed(cfg.seed)
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        random.seed(args.seed)
 
-    torch.backends.cudnn.deterministic = args.torch_deterministic
-
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Model setup
     env_t = make_env_non_batched(cfg)
     teacher_agent = make_model(cfg, env_t.observation_space, env_t.action_space).to(device)
-    teacher_agent.load_state_dict(torch.load(args.teacher_model_path, map_location=device))
-    student_agent = make_model(cfg, env_t.observation_space, env_t.action_space, sim2real=True).to(device)
     log.debug(teacher_agent)
+    teacher_model_path = os.path.join(os.getcwd(), args.teacher_model_path)
+    checkpoint_dict = torch.load(teacher_model_path, map_location=device)
+    teacher_agent.load_state_dict(checkpoint_dict["model"])
+
+    student_agent = make_model(cfg, env_t.observation_space, env_t.action_space, sim2real=True).to(device)
     log.debug(student_agent)
 
     env_t.close()
     del env_t
 
+    import multiprocessing as mp
+    mp.set_start_method('spawn')
+
+    # Make quad envs
+    envs = [make_quadrotor_env(cfg.env, cfg) for _ in range(args.num_agents)]
+    teachers = Teacher(envs, teacher_agent, args, cfg, device)
+
+    test_env = make_quadrotor_env(cfg.env, cfg)
+
+    optimizer = torch.optim.SGD(student_agent.parameters(), lr=args.lr)
+    students = Student(test_env, student_agent, args, cfg, optimizer, device)
+
+    policy_distillation(teachers, students, writer, args)
 
 
-
-
-
-
-
+if __name__ == '__main__':
+    main()
