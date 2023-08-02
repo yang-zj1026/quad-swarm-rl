@@ -1,0 +1,13 @@
+python -m distillation --env=quadrotor_multi \
+--use_rnn=False --adaptive_stddev=False --actor_critic_share_weights=False \
+--rnn_size=256 --quads_obstacle_obs_type=octomap --recurrence=1 --with_vtrace=False \
+--nonlinearity=tanh --policy_initialization=xavier_uniform --quads_use_numba=True \
+--quads_mode=mix --quads_episode_duration=15.0 --quads_encoder_type=attention \
+--quads_neighbor_hidden_size=256 --quads_neighbor_obs_type=pos_vel --quads_neighbor_encoder_type=attention \
+--quads_collision_hitbox_radius=2.0 --quads_collision_falloff_radius=4.0 \
+--quads_neighbor_visible_num=2 --quads_num_agents=8 \
+--quads_collision_reward=5.0 --quads_collision_smooth_max_penalty=10.0 --replay_buffer_sample_prob=0 \
+--normalize_input=False --normalize_returns=False \
+--quads_use_obstacles=True --quads_obst_collision_reward=5.0 --quads_obs_repr=xyz_vxyz_R_omega_floor \
+--num_workers=2 --num_agents=2 --sample_batch_size=10000 --eval_deterministic=True \
+--student_batch_size=1024 --learning_rate=0.0001 --num_student_episodes=2000

@@ -37,7 +37,7 @@ def args_parse():
                         help='number of workers for parallel computing')
 
     # Student policy training
-    parser.add_argument('--lr', type=float, default=1e-3, metavar='G',
+    parser.add_argument('--learning_rate', type=float, default=1e-3, metavar='G',
                         help='learnig rate (default: 1e-3)')
     parser.add_argument('--test_interval', type=int, default=5, metavar='N',
                         help='interval between training status logs (default: 10)')
@@ -59,24 +59,24 @@ def args_parse():
     return args
 
 
-def policy_distillation(teacher, student, writer, args):
+def policy_distillation(teacher, student, writer, args, run_name):
     for ep in range(args.num_student_episodes):
         if ep % args.sample_interval == 0:
             expert_data, expert_reward = teacher.get_expert_sample()
         loss = student.train(expert_data)
-        writer.add_scalar('KL loss', loss.data, ep)
-        print('Episode {}, KL loss: {:.2f}'.format(ep, loss.data))
+        writer.add_scalar('KL loss', loss, ep)
+        print('Epoch {}, KL loss: {:.2f}'.format(ep, loss))
 
         if ep % args.test_interval == 0:
             average_reward = student.test()
             writer.add_scalar('Students_average_reward', average_reward, ep)
             writer.add_scalar('teacher_reward', expert_reward, ep)
-            print("Students_average_reward: {:.3f} (teacher_reaward:{:3f})".format(average_reward, expert_reward))
+            print("Students_average_reward: {:.3f} (teacher_reaward: {:.3f})".format(average_reward, expert_reward))
 
     print('Training student policy finished!')
 
     # Save student policy
-    student.save_model()
+    student.save_model(run_name)
 
 
 def main():
@@ -148,10 +148,10 @@ def main():
 
     test_env = make_quadrotor_env(cfg.env, cfg)
 
-    optimizer = torch.optim.SGD(student_agent.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(student_agent.parameters(), lr=args.learning_rate, eps=1e-5)
     students = Student(test_env, student_agent, args, cfg, optimizer, device)
 
-    policy_distillation(teachers, students, writer, args)
+    policy_distillation(teachers, students, writer, args, run_name)
 
 
 if __name__ == '__main__':

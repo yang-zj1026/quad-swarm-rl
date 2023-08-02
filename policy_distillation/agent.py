@@ -29,12 +29,12 @@ def collect_samples(pid, queue, policy, min_batch_size, agent_count, device, cfg
                     model_outputs = policy(model_input, None)
                     action_distribution = policy.action_distribution()
                     action = argmax_actions(action_distribution).cpu().numpy()
-                    action_means, action_stds = torch.chunk(model_outputs['action_logits'], 2, dim=1)
+                    action_mean, action_logstd = torch.chunk(model_outputs['action_logits'], 2, dim=1)
 
                 next_obs, rewards, dones, truncated, infos = env.step(action)
                 total_reward += np.array(rewards)
 
-                memory.push(obs, action, action_means.cpu().numpy(), action_stds.cpu().numpy(), rewards)
+                memory.push(obs, action, action_mean.cpu().numpy(), action_logstd.cpu().numpy(), rewards)
 
                 if any(dones):
                     break
@@ -105,8 +105,8 @@ class AgentCollection:
             batch = memory.sample()
             states = torch.from_numpy(np.stack(batch.state))
             action_means = torch.from_numpy(np.stack(batch.action_mean))
-            action_stds = torch.from_numpy(np.stack(batch.action_std))
-            dataset += [(state, mean, std) for state, mean, std in zip(states, action_means, action_stds)]
+            action_logstds = torch.from_numpy(np.stack(batch.action_logstd))
+            dataset += [(state, mean, log_std) for state, mean, log_std in zip(states, action_means, action_logstds)]
 
         return dataset, teacher_average_reward
 

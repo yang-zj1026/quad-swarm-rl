@@ -50,6 +50,27 @@ def make_model(cfg, obs_space, action_space, sim2real=False):
 
 def _kl(teacher_dist_params, student_dist_params):
     pi = Normal(loc=teacher_dist_params[0], scale=teacher_dist_params[1])
-    pi_new = Normal(student_dist_params[0], scale=student_dist_params[1])
+    pi_new = Normal(loc=student_dist_params[0], scale=student_dist_params[1])
     kl = torch.mean(kl_divergence(pi, pi_new))
     return kl
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.count = 0
+        self.sum = 0.
+        self.avg = 0.
+        self.val = 0.
+
+    def reset(self):
+        self.val = 0.
+        self.avg = 0.
+        self.sum = 0.
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count

@@ -4,7 +4,7 @@ import random
 # Taken from
 # https://github.com/pytorch/tutorials/blob/master/Reinforcement%20(Q-)Learning%20with%20PyTorch.ipynb
 
-Transition = namedtuple('Transition', ('state', 'action', 'action_mean', 'action_std', 'reward'))
+Transition = namedtuple('Transition', ('state', 'action', 'action_mean', 'action_logstd', 'reward'))
 
 
 class Memory:
