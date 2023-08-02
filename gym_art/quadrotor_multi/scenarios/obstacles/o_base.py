@@ -18,6 +18,8 @@ class Scenario_o_base(QuadrotorScenario):
         self.spawn_points = None
         self.cell_centers = None
 
+        self.fake_obst_pos = None
+
     def generate_pos(self):
         half_room_length = self.room_dims[0] / 2
         half_room_width = self.room_dims[1] / 2
@@ -121,7 +123,7 @@ class Scenario_o_base(QuadrotorScenario):
 
         return np.any(adjacent_cells != 0)
 
-    def max_square_area_center(self):
+    def max_square_area_center(self, return_index=False):
         """
         Finds the maximum square area of 0 in a 2D matrix and returns the coordinates
         of the center element of the largest square area.
@@ -149,5 +151,8 @@ class Scenario_o_base(QuadrotorScenario):
         # Return the center coordinates of the largest square area as a tuple
         index = center_x + (m * center_y)
         pos_x, pos_y = self.cell_centers[index]
+        if return_index:
+            return center_x, center_y, pos_x, pos_y
         z_list_start = np.random.uniform(low=1.5, high=3.0)
         return np.array([pos_x, pos_y, z_list_start])
+

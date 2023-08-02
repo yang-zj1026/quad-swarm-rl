@@ -34,7 +34,7 @@ class Scenario_o_swap_goals(Scenario_o_base):
         self.free_space = list(zip(*obst_map_locs))
 
         # Update duration time
-        duration_time = np.random.uniform(low=4.0, high=6.0)
+        duration_time = np.random.uniform(low=6.0, high=8.0)
         self.control_step_for_sec = int(duration_time * self.envs[0].control_freq)
 
         # Reset formation and related parameters
@@ -50,3 +50,7 @@ class Scenario_o_swap_goals(Scenario_o_base):
         self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
                                          layer_dist=self.layer_dist)
         np.random.shuffle(self.goals)
+
+        # Generate an obstacle in the center of max area
+        return self.max_square_area_center(return_index=True)
+

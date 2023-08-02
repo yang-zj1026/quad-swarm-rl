@@ -327,7 +327,6 @@ class QuadrotorEnvMulti(gym.Env):
             # obst_item[1] += xy_noise[1]
             obst_pos_arr.append(obst_item)
 
-        obst_pos_arr = np.array(obst_pos_arr)
         return obst_map, obst_pos_arr, cell_centers
 
     def generate_obst_with_min_gap(self, grid_size=1.0, debug=False):
@@ -367,7 +366,6 @@ class QuadrotorEnvMulti(gym.Env):
         if debug:
             print("Obst Num:", len(obst_pos_arr))
 
-        obst_pos_arr = np.array(obst_pos_arr)
         return obst_map, obst_pos_arr, cell_centers
 
     def init_scene_multi(self):
@@ -398,7 +396,11 @@ class QuadrotorEnvMulti(gym.Env):
                 self.obst_map, obst_pos_arr, cell_centers = self.generate_obst_with_min_gap(debug=True)
             else:
                 self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
-            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
+            fake_obst_idx, fake_obst_idy, fake_obst_posx, fake_obst_posy = self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
+            self.obst_map[fake_obst_idx][fake_obst_idy] = 1
+            fake_obst_pos = [fake_obst_posx, fake_obst_posy, self.room_dims[2] / 2.]
+            obst_pos_arr.append(fake_obst_pos)
+            obst_pos_arr = np.array(obst_pos_arr)
         else:
             self.scenario.reset()
 

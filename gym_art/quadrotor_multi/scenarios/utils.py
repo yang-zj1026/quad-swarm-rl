@@ -22,8 +22,9 @@ QUADS_MODE_LIST_OBSTACLES_SINGLE = ['o_random']
 QUADS_FORMATION_LIST = ['circle_horizontal', 'circle_vertical_xz', 'circle_vertical_yz', 'sphere', 'grid_horizontal',
                         'grid_vertical_xz', 'grid_vertical_yz', 'cube']
 
-QUADS_FORMATION_LIST_OBSTACLES = ['circle_vertical_xz', 'circle_vertical_yz', 'sphere', 'grid_horizontal',
-                                  'grid_vertical_xz', 'grid_vertical_yz', 'cube']
+# QUADS_FORMATION_LIST_OBSTACLES = ['circle_vertical_xz', 'circle_vertical_yz', 'sphere', 'grid_horizontal',
+#                                   'grid_vertical_xz', 'grid_vertical_yz', 'cube']
+QUADS_FORMATION_LIST_OBSTACLES = ['circle_horizontal']
 
 # key: quads_mode
 # value: 0. formation, 1: [formation_low_size, formation_high_size]
@@ -44,7 +45,7 @@ QUADS_PARAMS_DICT = {
     'o_random': [['circle_horizontal'], [0.0, 0.0]],
     'o_static_same_goal': [['circle_horizontal'], [0.0, 0.0]],
     'o_dynamic_same_goal': [['circle_horizontal'], [0.0, 0.0]],
-    'o_swap_goals': [QUADS_FORMATION_LIST_OBSTACLES, [8 * quad_arm_size, 16 * quad_arm_size]],
+    'o_swap_goals': [QUADS_FORMATION_LIST_OBSTACLES, [20 * quad_arm_size, 20 * quad_arm_size]],
     'o_ep_rand_bezier': [['circle_horizontal'], [0.0, 0.0]],
 }
 
