@@ -63,6 +63,9 @@ class Student:
         return np.mean(total_rewards)
 
     def save_model(self, run_name):
-        save_path = os.path.join(os.getcwd(), 'train_dir', run_name, 'student_model.pth')
-        torch.save(self.policy.state_dict(), save_path)
+        save_path = os.path.join(os.getcwd(), 'train_dir', run_name, 'checkpoint_pd.pth')
+        checkpoint_dict = {
+            "model": self.policy.state_dict(),
+        }
+        torch.save(checkpoint_dict, save_path)
         print(f"Saved model to {save_path}")
