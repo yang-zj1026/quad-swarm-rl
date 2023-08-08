@@ -319,7 +319,7 @@ def plot(index, interpolated_key, ax, set_xlabel, legend_name, group_id, set_y_s
     y_np = [smooth(yi, 1) for yi in y_np]
     y_np = np.stack(y_np)
 
-    logscale = params.get('logscale', False)
+    logscale = params.get('logscale', True)
     if logscale:
         ax.set_yscale('log', base=2)
         ax.yaxis.set_minor_locator(ticker.NullLocator())  # no minor ticks
@@ -332,7 +332,7 @@ def plot(index, interpolated_key, ax, set_xlabel, legend_name, group_id, set_y_s
     scientific_formatter = FuncFormatter(scientific)
     ax.yaxis.set_major_formatter(scientific_formatter)
     # TO CHANGE
-    ax.set_ylim(-0.02, 1.02)
+
     # if np.max(y_np) < 0.6:
     #     ax.set_ylim(-0.02, 0.62)
     # elif np.max(y_np) < 0.8:
@@ -444,6 +444,11 @@ def main():
     # TO CHANGE
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
     ax = (ax1, ax2, ax3, ax4)
+
+    ax1.set_ylim(0.4, 1.02)
+    ax2.set_ylim(0.01, 1.0)
+    ax3.set_ylim(0.1, 0.65)
+    ax4.set_ylim(0.2, 1.0)
 
 
     for i in range(len(all_experiment_dirs)):
