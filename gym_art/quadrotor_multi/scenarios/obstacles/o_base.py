@@ -50,7 +50,7 @@ class Scenario_o_base(QuadrotorScenario):
         self.standard_reset(formation_center=self.start_point)
 
     def generate_pos_obst_map(self, check_surroundings=False):
-        idx = np.random.choice(a=len(self.free_space), replace=False)
+        idx = np.random.choice(a=len(self.free_space), replace=True)
         x, y = self.free_space[idx][0], self.free_space[idx][1]
         if check_surroundings:
             surroundings_free = self.check_surroundings(x, y)

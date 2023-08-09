@@ -248,6 +248,9 @@ class QuadrotorEnvMulti(gym.Env):
         self.flying_time_buffer = deque([], maxlen=100)
 
         self.agent_succes_rate_buffer = deque([], maxlen=100)
+        self.final_distance_to_goal_buffer = deque([], maxlen=100)
+        self.wall_collisions_buffer = deque([], maxlen=100)
+        self.collision_rate_buffer = deque([], maxlen=100)
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
@@ -953,7 +956,11 @@ class QuadrotorEnvMulti(gym.Env):
                     agent_success_body_rate_max = np.max(self.body_rate_max[agent_success_flag_list])
 
                 self.agent_succes_rate_buffer.append(agent_success_ratio)
+                self.collision_rate_buffer.append(agent_col_ratio)
 
+                self.wall_collisions_buffer.append(self.collisions_wall_per_episode)
+                self.final_distance_to_goal_buffer.append((1.0 / self.envs[0].dt) * np.mean(
+                            self.distance_to_goal[:, int(-1 * self.control_freq):]))
                 self.flying_trajectory_buffer.append(np.mean(np.sum(self.flying_trajectory[self.reached_goal], axis=-1)))
                 self.flying_time_buffer.append(np.mean(self.flying_time[self.reached_goal]))
 
@@ -961,7 +968,10 @@ class QuadrotorEnvMulti(gym.Env):
                     print(len(self.flying_trajectory_buffer))
                     print(np.mean(self.flying_trajectory_buffer))
                     print(np.mean(self.flying_time_buffer))
+                    print("Distance to goal", np.mean(self.final_distance_to_goal_buffer))
                     print("Success rate", np.mean(self.agent_succes_rate_buffer))
+                    print("Wall collisions", np.mean(self.wall_collisions_buffer))
+                    print("Collision rate", np.mean(self.collision_rate_buffer))
 
                 for i in range(len(infos)):
                     # base_no_collision_rate
