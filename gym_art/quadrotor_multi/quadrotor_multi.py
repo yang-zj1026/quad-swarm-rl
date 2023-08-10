@@ -503,7 +503,7 @@ class QuadrotorEnvMulti(gym.Env):
                 self.glas_model = Empty_Net_wAPF(param, empty_net)
                 # self.glas_model.to('cuda')
 
-                self.n_agents = 8
+                self.n_agents = 32
                 self.state_dim_per_agent = 4
                 self.action_dim_per_agent = 2
                 self.r_agent = param.r_agent
@@ -557,7 +557,7 @@ class QuadrotorEnvMulti(gym.Env):
                 empty_net.load_weights('../glas/single_integrator/empty_net.pt')
                 self.glas_model = Empty_Net_wAPF(param, empty_net)
 
-                self.n_agents = 8
+                self.n_agents = 32
                 self.state_dim_per_agent = 2
                 self.action_dim_per_agent = 2
                 self.r_agent = param.r_agent

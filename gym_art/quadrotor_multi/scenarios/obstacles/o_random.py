@@ -35,14 +35,14 @@ class Scenario_o_random(Scenario_o_base):
 
         self.start_point = []
         self.end_point = []
-        for i in range(self.num_agents):
-            start_point = self.generate_pos_obst_map()
-            self.start_point.append(start_point)
-            # end_point = self.generate_pos_obst_map()
-            # end_point[2] = start_point[2]
-            # self.end_point.append(end_point)
+        # for i in range(self.num_agents):
+        #     start_point = self.generate_pos_obst_map()
+        #     self.start_point.append(start_point)
+        #     # end_point = self.generate_pos_obst_map()
+        #     # end_point[2] = start_point[2]
+        #     # self.end_point.append(end_point)
 
-        # self.start_point = self.generate_pos_obst_map_2(self.num_agents)
+        self.start_point = self.generate_pos_obst_map_2(self.num_agents)
         self.end_point = self.generate_pos_obst_map_2(self.num_agents)
         for i in range(self.num_agents):
             self.end_point[i][2] = self.start_point[i][2]

@@ -25,7 +25,7 @@ class Empty_Net_wAPF:
     def __call__(self, x):
 
         if type(x) == torch.Tensor:
-
+            x = x.to(self.device)
             if self.param.safety == "potential":
                 P, H = self.bf.torch_get_relative_positions_and_safety_functions(x)
                 barrier_action = -1 * self.param.kp * self.bf.torch_get_grad_phi(x, P, H)
