@@ -36,7 +36,11 @@ class QuadrotorEnvMulti(gym.Env):
                  # Quadrotor Specific (Do Not Change)
                  dynamics_params, raw_control, raw_control_zero_middle,
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
-                 sense_noise, init_random_state):
+                 sense_noise, init_random_state,
+
+                 # Rendering
+                 render_mode='human'
+                 ):
         super().__init__()
 
         # Predefined Parameters
@@ -200,6 +204,9 @@ class QuadrotorEnvMulti(gym.Env):
         # Action space
         # self.action_min = -1.0 * self.envs[0].dynamics.acc_max
         self.action_max = 2.0
+
+        # Rendering
+        self.render_mode = render_mode
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
@@ -744,7 +751,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         return obs, rewards, dones, infos
 
-    def render(self, mode='human', verbose=False):
+    def render(self, verbose=False):
         models = tuple(e.dynamics.model for e in self.envs)
 
         if len(self.scenes) == 0:
@@ -788,7 +795,7 @@ class QuadrotorEnvMulti(gym.Env):
         for i in range(len(self.scenes)):
             frame, first_spawn = self.scenes[i].render_chase(all_dynamics=self.all_dynamics(), goals=goals,
                                                              collisions=self.all_collisions,
-                                                             mode=mode, obstacles=self.obstacles,
+                                                             mode=self.render_mode, obstacles=self.obstacles,
                                                              first_spawn=first_spawn)
             frames.append(frame)
         # Update the formation size of the scenario
@@ -805,7 +812,7 @@ class QuadrotorEnvMulti(gym.Env):
         time_to_sleep = desired_time_between_frames - simulation_time - render_time
 
         # wait so we don't simulate/render faster than realtime
-        if mode == "human" and time_to_sleep > 0:
+        if self.render_mode == "human" and time_to_sleep > 0:
             time.sleep(time_to_sleep)
 
         if simulation_time + render_time > desired_time_between_frames:
@@ -829,7 +836,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.simulation_start_time = time.time()
 
-        if mode == "rgb_array":
+        if self.render_mode == "rgb_array":
             return frame
 
     def __deepcopy__(self, memo):
