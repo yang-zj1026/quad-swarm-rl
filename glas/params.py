@@ -114,7 +114,7 @@ class SingleIntegratorParam:
         self.r_comm = 3
         self.r_obs_sense = 3.
         self.r_agent = 0.06
-        self.r_obstacle = 0.3
+        self.r_obstacle = 0.425
 
         # sim
         self.sim_t0 = 0

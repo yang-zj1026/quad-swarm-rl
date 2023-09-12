@@ -259,6 +259,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.pitch_rate_buffer = deque(maxlen=100)
         self.yaw_rate_buffer = deque(maxlen=100)
         self.body_rate_buffer = deque(maxlen=100)
+        self.inference_time_buffer = deque(maxlen=100)
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
@@ -557,7 +558,7 @@ class QuadrotorEnvMulti(gym.Env):
                 empty_net.load_weights('../glas/single_integrator/empty_net.pt')
                 self.glas_model = Empty_Net_wAPF(param, empty_net)
 
-                self.n_agents = 32
+                self.n_agents = self.num_agents
                 self.state_dim_per_agent = 2
                 self.action_dim_per_agent = 2
                 self.r_agent = param.r_agent
@@ -851,6 +852,7 @@ class QuadrotorEnvMulti(gym.Env):
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
 
+        st = time.time()
         # If using Glas, get the output of model here
         if self.use_glas:
             if self.glas_integrator == 'double_integrator':
@@ -859,6 +861,12 @@ class QuadrotorEnvMulti(gym.Env):
                 glas_obs = self.get_obs_glas_single()
 
             real_actions = self.glas_model.policy(glas_obs, 'cuda')
+            et = time.time()
+            self.inference_time_buffer.append(et - st)
+            if len(self.inference_time_buffer) == 100:
+                print("Mean inference time: ", np.mean(self.inference_time_buffer))
+                self.inference_time_buffer.clear()
+
             for i, a in enumerate(real_actions):
                 observation, reward, done, info = self.envs[i].step(a)
                 obs.append(observation)
@@ -1292,10 +1300,10 @@ class QuadrotorEnvMulti(gym.Env):
                 self.agent_deadlock_rate_buffer.append(agent_deadlock_ratio)
                 self.flying_trajectory_buffer.append(agent_success_traj_mean)
                 self.flying_time_buffer.append(agent_success_flying_time_mean)
-                self.roll_rate_buffer.append(agent_success_roll_mean)
-                self.pitch_rate_buffer.append(agent_success_pitch_mean)
-                self.yaw_rate_buffer.append(agent_success_yaw_mean)
-                self.body_rate_buffer.append(agent_success_body_rate_mean)
+                # self.roll_rate_buffer.append(agent_success_roll_mean)
+                # self.pitch_rate_buffer.append(agent_success_pitch_mean)
+                # self.yaw_rate_buffer.append(agent_success_yaw_mean)
+                # self.body_rate_buffer.append(agent_success_body_rate_mean)
 
 
                 if len(self.agent_success_rate_buffer) % 10 == 0:
@@ -1305,10 +1313,10 @@ class QuadrotorEnvMulti(gym.Env):
                     print("Agent deadlock rate: ", np.mean(self.agent_deadlock_rate_buffer))
                     print("Flying trajectory: ", np.mean(self.flying_trajectory_buffer))
                     print("Flying time: ", np.mean(self.flying_time_buffer))
-                    print("Roll rate: ", np.mean(self.roll_rate_buffer))
-                    print("Pitch rate: ", np.mean(self.pitch_rate_buffer))
-                    print("Yaw rate: ", np.mean(self.yaw_rate_buffer))
-                    print("Body rate: ", np.mean(self.body_rate_buffer))
+                    # print("Roll rate: ", np.mean(self.roll_rate_buffer))
+                    # print("Pitch rate: ", np.mean(self.pitch_rate_buffer))
+                    # print("Yaw rate: ", np.mean(self.yaw_rate_buffer))
+                    # print("Body rate: ", np.mean(self.body_rate_buffer))
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"
