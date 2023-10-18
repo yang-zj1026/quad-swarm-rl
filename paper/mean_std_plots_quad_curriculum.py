@@ -19,6 +19,8 @@ FULL_PAGE_WIDTH = 1.4 * PAGE_WIDTH_INCHES
 HALF_PAGE_WIDTH = FULL_PAGE_WIDTH / 2
 
 plt.rcParams['figure.figsize'] = (FULL_PAGE_WIDTH, 2.5)  # (2.5, 2.0) 7.5， 4
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 NUM_AGENTS = 8
 EPISODE_DURATION = 16  # seconds
@@ -128,7 +130,7 @@ def aggregate(path, subpath, experiments, ax, legend_name, group_id):
     print("Started aggregation {}".format(path))
 
     curr_dir = os.path.dirname(os.path.abspath(__file__))
-    cache_dir = join(curr_dir, 'cache')
+    cache_dir = join(curr_dir, 'compare_plr/cache')
     cache_env = join(cache_dir, subpath)
 
     if os.path.isdir(cache_env):
@@ -428,7 +430,7 @@ def main():
     # TO CHANGE
     # subpaths = sorted(os.listdir(path))
     subpaths = ['final_baseline_aws', 'final_curriculum']
-    legend_name = sorted(['PLR', 'Our Replay Strategy'])
+    legend_name = sorted(['Ours', 'PLR'])
     all_experiment_dirs = {}
     for subpath in subpaths:
         if subpath not in all_experiment_dirs:
