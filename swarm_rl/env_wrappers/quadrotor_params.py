@@ -52,6 +52,9 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_collision_smooth_max_penalty', default=10.0, type=float,
                    help='The upper bound of the collision function given distance among drones')
 
+    # Sensor Noises
+    p.add_argument('--quads_noise_pos_max', default=0.05, type=float, help='The maximum noise for position')
+
     # Obstacle
     # # Obstacle Features
     p.add_argument('--quads_use_obstacles', default=False, type=str2bool, help='Use obstacles or not')
@@ -113,6 +116,7 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--anneal_collision_steps', default=0.0, type=float, help='Anneal collision penalties over this '
                                                                              'many steps. Default (0.0) is no '
                                                                              'annealing')
+    p.add_argument('--anneal_noise_steps', default=0.0, type=float, help='Anneal noise over this many steps')
 
     # Rendering
     p.add_argument('--quads_view_mode', nargs='+', default=['topdown', 'chase', 'global'],

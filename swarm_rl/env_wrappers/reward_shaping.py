@@ -8,6 +8,10 @@ DEFAULT_QUAD_REWARD_SHAPING_SINGLE = dict(
     quad_rewards=dict(
         effort=0.05, spin=0.1, vel=0.0, crash=1.0, orient=1.0, yaw=0.0
     ),
+    quad_noises=dict(
+        pos_norm_std=0.005, pos_unif_range=0., vel_norm_std=0.01, vel_unif_range=0.,
+        quat_norm_std=0., quat_unif_range=0., gyro_norm_std=0.
+    )
 )
 
 DEFAULT_QUAD_REWARD_SHAPING = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING_SINGLE)
@@ -37,10 +41,10 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
         return dict(quad_rewards=dict())
 
     def get_current_reward_shaping(self, agent_idx: int):
-        return dict(quad_rewards=dict())
+        return dict(quad_rewards=dict(), quad_noises=dict())
 
     def set_reward_shaping(self, reward_shaping, unused_agent_idx):
-        self.reward_shaping_scheme = dict(quad_rewards=dict())
+        self.reward_shaping_scheme = dict(quad_rewards=dict(), quad_noises=dict())
         self.reward_shaping_updated = True
 
     def reset(self):
@@ -57,6 +61,11 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
             env_reward_shaping = self.env.unwrapped.rew_coeff
             for key, weight in self.reward_shaping_scheme['quad_rewards'].items():
                 env_reward_shaping[key] = weight
+
+            # set the updated noise scheme
+            env_noise_shaping = self.env.unwrapped.noise_coeff
+            for key, weight in self.reward_shaping_scheme['quad_noises'].items():
+                env_noise_shaping[key] = weight
 
             self.reward_shaping_updated = False
 
@@ -110,12 +119,21 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
                 if self.annealing:
                     env_reward_shaping = self.env.unwrapped.rew_coeff
                     # annealing from 0.0 to final value
-                    for anneal_schedule in self.annealing:
+                    for anneal_schedule in self.annealing['rewards']:
                         coeff_name = anneal_schedule.coeff_name
                         final_value = anneal_schedule.final_value
                         anneal_steps = anneal_schedule.anneal_env_steps
                         env_reward_shaping[coeff_name] = min(final_value * approx_total_training_steps / anneal_steps, final_value)
                         extra_stats[f'z_anneal_{coeff_name}'] = env_reward_shaping[coeff_name]
+
+                    env_noise_shaping = self.env.unwrapped.noise_coeff
+                    # annealing from 0.0 to final value
+                    for anneal_schedule in self.annealing['noises']:
+                        coeff_name = anneal_schedule.coeff_name
+                        final_value = anneal_schedule.final_value
+                        anneal_steps = anneal_schedule.anneal_env_steps
+                        env_noise_shaping[coeff_name] = min(final_value * approx_total_training_steps / anneal_steps, final_value)
+                        extra_stats[f'z_anneal_{coeff_name}'] = env_noise_shaping[coeff_name]
 
         if any(dones_multi):
             self.episode_actions = []

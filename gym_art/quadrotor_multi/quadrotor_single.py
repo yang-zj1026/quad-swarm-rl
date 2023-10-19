@@ -151,6 +151,7 @@ class QuadrotorSingle:
         # Preset parameters
         self.obs_repr = obs_repr
         self.rew_coeff = None
+        self.noise_coeff = None
         # EPISODE PARAMS
         self.ep_time = ep_time  # In seconds
         self.sim_steps = sim_steps
@@ -351,6 +352,9 @@ class QuadrotorSingle:
 
         self.tick += 1
         done = self.tick > self.ep_len
+
+        # Update sensor noise
+        self.update_sense_noise(self.noise_coeff)
         sv = self.state_vector(self)
         self.traj_count += int(done)
 

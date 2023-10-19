@@ -21,7 +21,7 @@ from gym_art.quadrotor_multi.scenarios.mix import create_scenario
 
 
 class QuadrotorEnvMulti(gym.Env):
-    def __init__(self, num_agents, ep_time, rew_coeff, obs_repr,
+    def __init__(self, num_agents, ep_time, rew_coeff, noise_coeff, obs_repr,
                  # Neighbor
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
 
@@ -101,6 +101,21 @@ class QuadrotorEnvMulti(gym.Env):
         orig_keys = list(rew_coeff_orig.keys())
         # Checking to make sure we didn't provide some false rew_coeffs (for example by misspelling one of the params)
         assert np.all([key in orig_keys for key in self.rew_coeff.keys()])
+
+        # Noise
+        self.noise_coeff = dict(
+            pos_norm_std=0.005, pos_unif_range=0., vel_norm_std=0.01, vel_unif_range=0.,
+            quat_norm_std=0., quat_unif_range=0., gyro_norm_std=0.,
+            gyro_noise_density=0.000175, gyro_random_walk=0.0105,
+            acc_static_noise_std=0.002, acc_dynamic_noise_ratio=0.005
+        )
+
+        if noise_coeff is not None:
+            assert isinstance(noise_coeff, dict)
+            assert set(noise_coeff.keys()).issubset(set(self.noise_coeff.keys()))
+            self.noise_coeff.update(noise_coeff)
+        for key in self.noise_coeff.keys():
+            self.noise_coeff[key] = float(self.noise_coeff[key])
 
         # Neighbors
         neighbor_obs_size = QUADS_NEIGHBOR_OBS_TYPE[neighbor_obs_type]
@@ -462,7 +477,9 @@ class QuadrotorEnvMulti(gym.Env):
         obs, rewards, dones, infos = [], [], [], []
 
         for i, a in enumerate(actions):
+            # Update reward and noise coefficients
             self.envs[i].rew_coeff = self.rew_coeff
+            self.envs[i].noise_coeff = self.noise_coeff
 
             observation, reward, done, info = self.envs[i].step(a)
             obs.append(observation)

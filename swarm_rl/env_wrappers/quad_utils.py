@@ -34,10 +34,12 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     dynamics_change = dict(noise=dict(thrust_noise_ratio=0.05), damp=dict(vel=0, omega_quadratic=0))
 
     rew_coeff = DEFAULT_QUAD_REWARD_SHAPING['quad_rewards']
+    noise_coeff = DEFAULT_QUAD_REWARD_SHAPING['quad_noises']
     use_replay_buffer = cfg.replay_buffer_sample_prob > 0.0
 
     env = QuadrotorEnvMulti(
-        num_agents=cfg.quads_num_agents, ep_time=cfg.quads_episode_duration, rew_coeff=rew_coeff,
+        num_agents=cfg.quads_num_agents, ep_time=cfg.quads_episode_duration,
+        rew_coeff=rew_coeff, noise_coeff=noise_coeff,
         obs_repr=cfg.quads_obs_repr,
         # Neighbor
         neighbor_visible_num=cfg.quads_neighbor_visible_num, neighbor_obs_type=cfg.quads_neighbor_obs_type,
@@ -68,8 +70,10 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
 
     if use_replay_buffer:
         env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.quads_obst_density, cfg.quads_obst_size,
-                                      cfg.quads_domain_random, cfg.quads_obst_density_random, cfg.quads_obst_size_random,
-                                      cfg.quads_obst_density_min, cfg.quads_obst_density_max, cfg.quads_obst_size_min, cfg.quads_obst_size_max)
+                                      cfg.quads_domain_random, cfg.quads_obst_density_random,
+                                      cfg.quads_obst_size_random,
+                                      cfg.quads_obst_density_min, cfg.quads_obst_density_max, cfg.quads_obst_size_min,
+                                      cfg.quads_obst_size_max)
 
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
@@ -82,12 +86,17 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         reward_shaping['quad_rewards']['quadcol_bin'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_obst'] = 0.0
-        annealing = [
-            AnnealSchedule('quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps),
-            AnnealSchedule('quadcol_bin_smooth_max', cfg.quads_collision_smooth_max_penalty,
-                           cfg.anneal_collision_steps),
-            AnnealSchedule('quadcol_bin_obst', cfg.quads_obst_collision_reward, cfg.anneal_collision_steps),
-        ]
+        annealing = {
+            'rewards': [
+                AnnealSchedule('quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps),
+                AnnealSchedule('quadcol_bin_smooth_max', cfg.quads_collision_smooth_max_penalty,
+                               cfg.anneal_collision_steps),
+                AnnealSchedule('quadcol_bin_obst', cfg.quads_obst_collision_reward, cfg.anneal_collision_steps),
+            ]
+        }
+        if cfg.anneal_noise_steps > 0:
+            reward_shaping['quad_noises']['pos_norm_std'] = 0.0
+            annealing['noises'] = [AnnealSchedule('pos_norm_std', cfg.quads_noise_pos_max, cfg.anneal_noise_steps)]
     else:
         annealing = None
 
