@@ -54,6 +54,8 @@ def add_quadrotors_env_args(env, parser):
 
     # Sensor Noises
     p.add_argument('--quads_noise_pos_max', default=0.05, type=float, help='The maximum noise for position')
+    p.add_argument('--quads_pos_std_init', default=0.05, type=float, help='The initial std for position noise')
+    p.add_argument('--quads_pos_std_step', default=0.025, type=float, help='The step size for position noise')
 
     # Obstacle
     # # Obstacle Features
@@ -117,6 +119,7 @@ def add_quadrotors_env_args(env, parser):
                                                                              'many steps. Default (0.0) is no '
                                                                              'annealing')
     p.add_argument('--anneal_noise_steps', default=0.0, type=float, help='Anneal noise over this many steps')
+    p.add_argument('--use_noise_adr', default=False, type=str2bool, help='Use ADR for position noise or not')
 
     # Rendering
     p.add_argument('--quads_view_mode', nargs='+', default=['topdown', 'chase', 'global'],
