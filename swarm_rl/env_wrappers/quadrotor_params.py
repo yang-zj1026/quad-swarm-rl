@@ -53,9 +53,9 @@ def add_quadrotors_env_args(env, parser):
                    help='The upper bound of the collision function given distance among drones')
 
     # Sensor Noises
-    p.add_argument('--quads_noise_pos_max', default=0.05, type=float, help='The maximum noise for position')
-    p.add_argument('--quads_pos_std_init', default=0.05, type=float, help='The initial std for position noise')
-    p.add_argument('--quads_pos_std_step', default=0.025, type=float, help='The step size for position noise')
+    p.add_argument('--quads_noise_pos_max', default=0.005, type=float, help='The maximum noise for position')
+    p.add_argument('--quads_pos_std_init', default=0.005, type=float, help='The initial std for position noise')
+    p.add_argument('--quads_pos_std_step', default=0.0025, type=float, help='The step size for position noise')
 
     # Obstacle
     # # Obstacle Features

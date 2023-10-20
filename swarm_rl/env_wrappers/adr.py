@@ -12,7 +12,7 @@ class ADRNoiseWrapper(gym.Wrapper):
         """A wrapper which implements automatic domain randomization."""
         super().__init__(env)
         self.pos_std_init = pos_noise_init
-        self.pos_std_low, self.pos_std_high = pos_noise_init, pos_noise_init + 0.05
+        self.pos_std_low, self.pos_std_high = pos_noise_init, pos_noise_init + pos_std_step
         self.pos_std_step = pos_std_step
 
         self.buffer_max_len = buffer_max_len
