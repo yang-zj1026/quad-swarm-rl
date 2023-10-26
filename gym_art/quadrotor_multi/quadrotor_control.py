@@ -4,6 +4,8 @@ from gym_art.quadrotor_multi.quad_utils import *
 import qpsolvers
 import math
 import time
+import osqp
+import scipy.sparse as spa
 
 GRAV = 9.81
 
@@ -32,8 +34,8 @@ class NominalSBC:
         h = np.array([])
         A = np.ndarray((0, 3), np.float64)
         b = np.array([])
-        lb = np.array([-self.maximum_linf_acceleration]*3)
-        ub = np.array([self.maximum_linf_acceleration]*3)
+        lb = np.array([-self.maximum_linf_acceleration] * 3)
+        ub = np.array([self.maximum_linf_acceleration] * 3)
 
         for object_description in object_descriptions:
             relative_position = self_state.position - object_description.state.position
@@ -50,26 +52,60 @@ class NominalSBC:
             relative_position_dot_relative_velocity = np.dot(
                 relative_position, relative_velocity)
 
-            hij = math.sqrt(2.0 * (self.maximum_linf_acceleration + object_description.maximum_linf_acceleration_lower_bound) * (
-                relative_position_norm - safety_distance)) + (relative_position_dot_relative_velocity / relative_position_norm)
+            hij = math.sqrt(
+                2.0 * (self.maximum_linf_acceleration + object_description.maximum_linf_acceleration_lower_bound) * (
+                        relative_position_norm - safety_distance)) + (
+                              relative_position_dot_relative_velocity / relative_position_norm)
 
             bij = -relative_position_dot_relative_velocity * \
-                np.dot(relative_position, self_state.velocity) / \
-                (relative_position_norm * relative_position_norm) + np.dot(relative_velocity, self_state.velocity) + \
-                (self.maximum_linf_acceleration / (self.maximum_linf_acceleration +
-                 object_description.maximum_linf_acceleration_lower_bound)) * \
-                (self.aggressiveness * hij * hij * hij * relative_position_norm
-                 + (math.sqrt(self.maximum_linf_acceleration +
-                              object_description.maximum_linf_acceleration_lower_bound) *
-                    relative_position_dot_relative_velocity) /
-                 (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
+                  np.dot(relative_position, self_state.velocity) / \
+                  (relative_position_norm * relative_position_norm) + np.dot(relative_velocity, self_state.velocity) + \
+                  (self.maximum_linf_acceleration / (self.maximum_linf_acceleration +
+                                                     object_description.maximum_linf_acceleration_lower_bound)) * \
+                  (self.aggressiveness * hij * hij * hij * relative_position_norm
+                   + (math.sqrt(self.maximum_linf_acceleration +
+                                object_description.maximum_linf_acceleration_lower_bound) *
+                      relative_position_dot_relative_velocity) /
+                   (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
 
             G = np.append(G, [-1.0 * relative_position], axis=0)
             h = np.append(h, bij)
 
-        x = qpsolvers.solve_qp(P, q, G, h, A, b, lb, ub, solver="osqp")
+        P = spa.csc_matrix(P)
+        G = spa.csc_matrix(G)
+        A = spa.csc_matrix(A)
 
-        return x
+        A_osqp = None
+        l_osqp = None
+        u_osqp = None
+        if G is not None and h is not None:
+            A_osqp = G
+            l_osqp = np.full(h.shape, -np.infty)
+            u_osqp = h
+        if A is not None and b is not None:
+            A_osqp = A if A_osqp is None else spa.vstack([A_osqp, A], format="csc")
+            l_osqp = b if l_osqp is None else np.hstack([l_osqp, b])
+            u_osqp = b if u_osqp is None else np.hstack([u_osqp, b])
+        if lb is not None or ub is not None:
+            lb = lb if lb is not None else np.full(q.shape, -np.infty)
+            ub = ub if ub is not None else np.full(q.shape, +np.infty)
+            E = spa.eye(q.shape[0])
+            A_osqp = E if A_osqp is None else spa.vstack([A_osqp, E], format="csc")
+            l_osqp = lb if l_osqp is None else np.hstack([l_osqp, lb])
+            u_osqp = ub if u_osqp is None else np.hstack([u_osqp, ub])
+
+        solver = osqp.OSQP()
+        solver.setup(P=P, q=q, A=A_osqp, l=l_osqp, u=u_osqp, verbose=False)
+
+        res = solver.solve()
+        # x = qpsolvers.solve_qp(P, q, G, h, A, b, lb, ub, solver="osqp")
+
+        # import gym_art.emosqp as emosqp
+        # emosqp.solve()
+
+        return res.x if res.info.status_val == osqp.constant("OSQP_SOLVED") else None
+
+
 
 # import line_profiler
 # like raw motor control, but shifted such that a zero action
