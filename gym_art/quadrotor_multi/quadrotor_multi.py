@@ -173,6 +173,8 @@ class QuadrotorEnvMulti(gym.Env):
         self.crashes_in_recent_episodes = deque([], maxlen=100)
         self.crashes_last_episode = 0
 
+        self.sbc_neigh_buffer = deque([], maxlen=100)
+
         # Numba
         self.use_numba = use_numba
 
@@ -464,6 +466,34 @@ class QuadrotorEnvMulti(gym.Env):
             observation, reward, done, info = self.envs[i].step(
                 action=a, sbc_data={"self_state": self_state, "neighbor_descriptions": neighbor_descriptions})
 
+                # # Add four nearest obstacle descriptions
+                # obst_dis = [np.linalg.norm(self_state.position[:2] - obst_pose[:2]) for obst_pose in self.obst_pos_arr]
+                # nearest_obst_indices = np.argsort(obst_dis)[:4]
+                # for j in nearest_obst_indices:
+                #     x, y = self.obst_pos_arr[j][0], self.obst_pos_arr[j][1]
+                #     if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
+                #         z = 0.0
+                #         while z < self.room_dims[2]:
+                #             if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
+                #                 neighbor_descriptions.append(
+                #                                         NominalSBC.ObjectDescription(
+                #                                             state=NominalSBC.State(
+                #                                                 position=np.array([x, y, z]),
+                #                                                 velocity=np.zeros(3)
+                #                                             ),
+                #                                             radius=self.obst_size*0.5,
+                #                                             maximum_linf_acceleration_lower_bound=0.0
+                #                                         )
+                #                                     )
+                #             z += self.obst_size * 0.5
+                # if len(neighbor_descriptions) < 80:
+                #     neighbor_descriptions.append(neighbor_descriptions[-1])
+
+                # self.sbc_neigh_buffer.append(len(neighbor_descriptions))
+                # if len(self.sbc_neigh_buffer) % 100 == 0:
+                #     print("Avg number of SBC neighbors: ", np.mean(self.sbc_neigh_buffer))
+                #     self.sbc_neigh_buffer.clear()
+
             obs.append(observation)
             rewards.append(reward)
             dones.append(done)
@@ -723,11 +753,14 @@ class QuadrotorEnvMulti(gym.Env):
                 # agent_col_rate
                 # Collide with other drones and obstacles
                 agent_col_ratio = 1.0 - np.sum(agent_col_flag_list) / self.num_agents
+                agent_col_neighbor_ratio = 1.0 - np.sum(self.agent_col_agent) / self.num_agents
+                agent_col_obst_ratio = 1.0 - np.sum(self.agent_col_obst) / self.num_agents
 
                 # agent_neighbor_col_rate
                 agent_neighbor_col_ratio = 1.0 - np.sum(self.agent_col_agent) / self.num_agents
                 # agent_obst_col_rate
                 agent_obst_col_ratio = 1.0 - np.sum(self.agent_col_obst) / self.num_agents
+
 
                 for i in range(len(infos)):
                     # agent_success_rate

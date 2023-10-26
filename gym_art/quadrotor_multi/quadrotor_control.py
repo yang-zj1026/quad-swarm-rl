@@ -1,9 +1,16 @@
+import osqp
+import scipy
 from numpy.linalg import norm
 from gymnasium import spaces
 from gym_art.quadrotor_multi.quad_utils import *
 import qpsolvers
 import math
-from scipy.sparse import csc_matrix
+
+import time
+import daqp
+from ctypes import c_double, c_int
+import ctypes.util
+
 
 GRAV = 9.81
 
@@ -25,6 +32,56 @@ class NominalSBC:
         self.aggressiveness = aggressiveness
         self.radius = radius
 
+    def setup_qp(self, self_state, object_descriptions, desired_acceleration):
+        P = 2.0 * np.eye(3, dtype=c_double)
+        q = -2.0 * desired_acceleration.astype(c_double)
+        G = np.ndarray((0, 3), dtype=c_double)
+        h = np.array([], dtype=c_double)
+        A = np.ndarray((0, 3), np.float64)
+        b = np.array([])
+        lb = np.array([-self.maximum_linf_acceleration]*3, dtype=c_double)
+        ub = np.array([self.maximum_linf_acceleration]*3, dtype=c_double)
+
+        for object_description in object_descriptions:
+            relative_position = self_state.position - object_description.state.position
+            relative_position_norm = np.linalg.norm(relative_position)
+            if abs(relative_position_norm) < 1e-10:
+                return None
+            safety_distance = self.radius + object_description.radius
+
+            if relative_position_norm < safety_distance:
+                return None
+
+            relative_velocity = self_state.velocity - object_description.state.velocity
+            relative_position_dot_relative_velocity = np.dot(relative_position, relative_velocity)
+
+            hij = math.sqrt(2.0 * (self.maximum_linf_acceleration + object_description.maximum_linf_acceleration_lower_bound) * (
+                relative_position_norm - safety_distance)) + (relative_position_dot_relative_velocity / relative_position_norm)
+
+            bij = -relative_position_dot_relative_velocity * np.dot(relative_position, self_state.velocity) / \
+                  (relative_position_norm * relative_position_norm) + np.dot(relative_velocity, self_state.velocity) + \
+                  (self.maximum_linf_acceleration / (self.maximum_linf_acceleration +
+                                                     object_description.maximum_linf_acceleration_lower_bound)) * \
+                  (self.aggressiveness * hij * hij * hij * relative_position_norm
+                   + (math.sqrt(self.maximum_linf_acceleration +
+                                object_description.maximum_linf_acceleration_lower_bound) *
+                      relative_position_dot_relative_velocity) /
+                   (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
+
+            G = np.append(G, [-1.0 * relative_position], axis=0)
+            h = np.append(h, bij)
+
+        P = scipy.sparse.csc.csc_matrix(P)
+        G = scipy.sparse.csc.csc_matrix(G)
+        A = scipy.sparse.csc.csc_matrix(A)
+
+        # p = qpsolvers.Problem(P, q, G, h, lb, ub)
+        m = osqp.OSQP()
+
+        # TODO: setup the problem as cvxpy
+        p = None
+        return p
+
     def plan(self, self_state, object_descriptions, desired_acceleration):
         P = 2.0 * np.eye(3)
         q = -2.0 * desired_acceleration
@@ -40,7 +97,6 @@ class NominalSBC:
             relative_position_norm = np.linalg.norm(relative_position)
             if abs(relative_position_norm) < 1e-10:
                 return None
-
             safety_distance = self.radius + object_description.radius
 
             if relative_position_norm < safety_distance:
@@ -65,9 +121,9 @@ class NominalSBC:
             G = np.append(G, [-1.0 * relative_position], axis=0)
             h = np.append(h, bij)
 
-        P = csc_matrix(P)
-        G = csc_matrix(G)
-        A = csc_matrix(A)
+        P = scipy.sparse.csc_matrix(P)
+        G = scipy.sparse.csc_matrix(G)
+        A = scipy.sparse.csc_matrix(A)
 
         # This is the bottleneck
         # TODO: find a better QP solver
@@ -322,6 +378,7 @@ class MellingerController(object):
         self.enable_sbc = True
         # maximum_linf_acceleration, max_acc in any dimension
         self.sbc = NominalSBC(maximum_linf_acceleration=2.0, aggressiveness=sbc_aggressive, radius=sbc_radius)
+
         self.sbc_last_safe_acc = None
 
         self.step_func = self.step

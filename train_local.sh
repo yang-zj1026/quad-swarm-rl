@@ -11,6 +11,6 @@ python -m swarm_rl.train \
 --quads_obs_repr=xyz_vxyz_R_omega \
 --quads_neighbor_hidden_size=256 --quads_neighbor_obs_type=pos_vel --quads_collision_hitbox_radius=2.0 \
 --quads_collision_falloff_radius=4.0 --quads_collision_reward=5.0 --quads_collision_smooth_max_penalty=10.0 \
---quads_neighbor_encoder_type=attention --quads_neighbor_visible_num=6 \
---quads_use_obstacles=False --quads_use_downwash=True \
---experiment=test_multi_drone
+--quads_neighbor_encoder_type=attention --quads_neighbor_visible_num=2 \
+--quads_use_obstacles=True --quads_obstacle_obs_type=octomap \
+--experiment=test_rl_sbc
