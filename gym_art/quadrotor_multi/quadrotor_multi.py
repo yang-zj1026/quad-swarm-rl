@@ -474,7 +474,9 @@ class QuadrotorEnvMulti(gym.Env):
             self.quads_formation_size = self.scenario.formation_size
             self.all_collisions = {val: [0.0 for _ in range(len(self.envs))] for val in ['drone', 'ground', 'obstacle']}
 
-        self.step_time = deque(maxlen=100)
+        # self.step_time = deque(maxlen=100)
+        # self.step_time_add_neighbor = deque(maxlen=100)
+        # self.step_time_qp = deque(maxlen=100)
         return obs
 
     def step(self, actions):
@@ -489,21 +491,20 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_descriptions = []
 
                 # Add neighbor robot descriptions
-                neighbor_dis = [np.linalg.norm(self_state.position - self.envs[j].dynamics.pos) for j in
-                                range(len(actions))]
-                nearest_neighbor_idx = np.argsort(neighbor_dis)[1:self.num_use_neighbor_obs + 1]
-                for j in nearest_neighbor_idx:
-                    neighbor_descriptions.append(
-                        NominalSBC.ObjectDescription(
+                for j in range(len(actions)):
+                    if i == j:
+                        continue
+
+                    if np.linalg.norm(self_state.position - self.envs[j].dynamics.pos) < 5.0:
+                        neighbor_descriptions.append(NominalSBC.ObjectDescription(
                             state=NominalSBC.State(
                                 position=self.envs[j].dynamics.pos,
                                 velocity=self.envs[j].dynamics.vel
                             ),
                             radius=self.envs[j].controller.sbc.radius,
-                            maximum_linf_acceleration_lower_bound=self.envs[
-                                j].controller.sbc.maximum_linf_acceleration
+                            maximum_linf_acceleration_lower_bound=self.envs[j].controller.sbc.maximum_linf_acceleration
                         )
-                    )
+                        )
                 # for j in range(len(actions)):
                 #     if i == j:
                 #         continue
@@ -523,25 +524,22 @@ class QuadrotorEnvMulti(gym.Env):
 
                 # Add neighbor obstacle descriptions
                 if self.use_obstacles:
-                    obst_dis = [np.linalg.norm(self_state.position[:2] - obst_pose[:2]) for obst_pose in
-                                self.obst_pos_arr]
-                    nearest_obst_indices = np.argsort(obst_dis)[:2]
-                    for j in nearest_obst_indices:
-                        x, y = self.obst_pos_arr[j][0], self.obst_pos_arr[j][1]
-                        # if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
-                        z = 0.0
-                        while z < self.room_dims[2]:
-                                # if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
-                                neighbor_descriptions.append(
-                                                            NominalSBC.ObjectDescription(
-                                                                state=NominalSBC.State(
-                                                                    position=np.array([x, y, z]),
-                                                                    velocity=np.zeros(3)
-                                                                ),
-                                                                radius=self.obst_size*0.5,
-                                                                maximum_linf_acceleration_lower_bound=0.0
+                    for obst_pose in self.obst_pos_arr:
+                        x, y = obst_pose[0], obst_pose[1]
+                        if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
+                            z = 0.0
+                            while z < self.room_dims[2]:
+                                if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
+                                    neighbor_descriptions.append(
+                                                                NominalSBC.ObjectDescription(
+                                                                    state=NominalSBC.State(
+                                                                        position=np.array([x, y, z]),
+                                                                        velocity=np.zeros(3)
+                                                                    ),
+                                                                    radius=self.obst_size*0.5,
+                                                                    maximum_linf_acceleration_lower_bound=0.0
+                                                                )
                                                             )
-                                                        )
                                 z += self.obst_size * 0.5
                     # for obst_pose in self.obst_pos_arr:
                     #     x, y = obst_pose[0], obst_pose[1]
@@ -575,6 +573,7 @@ class QuadrotorEnvMulti(gym.Env):
                     a, {"self_state": self_state,
                         "neighbor_descriptions": neighbor_descriptions})
                 self.compute_time += t
+
                 del neighbor_descriptions
             else:
                 observation, reward, done, info, t = self.envs[i].step(a)
@@ -587,9 +586,9 @@ class QuadrotorEnvMulti(gym.Env):
             self.pos[i, :] = self.envs[i].dynamics.pos
 
         self.step_time.append(self.compute_time)
-        if len(self.step_time) == 100:
-            print("mean step time: ", np.mean(self.step_time))
-            self.step_time.clear()
+        # if len(self.step_time) == 100:
+        #     print("mean step time: ", np.mean(self.step_time))
+        #     self.step_time.clear()
 
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones

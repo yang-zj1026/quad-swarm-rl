@@ -98,10 +98,6 @@ class NominalSBC:
         solver.setup(P=P, q=q, A=A_osqp, l=l_osqp, u=u_osqp, verbose=False)
 
         res = solver.solve()
-        # x = qpsolvers.solve_qp(P, q, G, h, A, b, lb, ub, solver="osqp")
-
-        # import gym_art.emosqp as emosqp
-        # emosqp.solve()
 
         return res.x if res.info.status_val == osqp.constant("OSQP_SOLVED") else None
 
