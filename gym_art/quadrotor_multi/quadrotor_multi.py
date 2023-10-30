@@ -527,20 +527,31 @@ class QuadrotorEnvMulti(gym.Env):
                     for obst_pose in self.obst_pos_arr:
                         x, y = obst_pose[0], obst_pose[1]
                         if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
-                            z = 0.0
-                            while z < self.room_dims[2]:
-                                if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
-                                    neighbor_descriptions.append(
-                                                                NominalSBC.ObjectDescription(
-                                                                    state=NominalSBC.State(
-                                                                        position=np.array([x, y, z]),
-                                                                        velocity=np.zeros(3)
-                                                                    ),
-                                                                    radius=self.obst_size*0.5,
-                                                                    maximum_linf_acceleration_lower_bound=0.0
-                                                                )
-                                                            )
-                                z += self.obst_size * 0.5
+                            # z = 0.0
+                            # while z < self.room_dims[2]:
+                            #     if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
+                            #         neighbor_descriptions.append(
+                            #                                     NominalSBC.ObjectDescription(
+                            #                                         state=NominalSBC.State(
+                            #                                             position=np.array([x, y, z]),
+                            #                                             velocity=np.zeros(3)
+                            #                                         ),
+                            #                                         radius=self.obst_size*0.5,
+                            #                                         maximum_linf_acceleration_lower_bound=0.0
+                            #                                     )
+                            #                                 )
+                            #     z += self.obst_size * 0.5
+                            neighbor_descriptions.append(
+                                NominalSBC.ObjectDescription(
+                                    state=NominalSBC.State(
+                                        position=np.array([x, y]),
+                                        velocity=np.zeros(2)
+                                    ),
+                                    radius=self.obst_size * 0.5,
+                                    maximum_linf_acceleration_lower_bound=0.0,
+                                    cyclinder=True
+                                )
+                            )
                     # for obst_pose in self.obst_pos_arr:
                     #     x, y = obst_pose[0], obst_pose[1]
                     #     if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
@@ -585,7 +596,7 @@ class QuadrotorEnvMulti(gym.Env):
 
             self.pos[i, :] = self.envs[i].dynamics.pos
 
-        self.step_time.append(self.compute_time)
+        # self.step_time.append(self.compute_time)
         # if len(self.step_time) == 100:
         #     print("mean step time: ", np.mean(self.step_time))
         #     self.step_time.clear()

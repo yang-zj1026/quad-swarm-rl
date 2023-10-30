@@ -17,15 +17,17 @@ class NominalSBC:
             self.velocity = velocity
 
     class ObjectDescription:
-        def __init__(self, state, radius, maximum_linf_acceleration_lower_bound):
+        def __init__(self, state, radius, maximum_linf_acceleration_lower_bound, cyclinder=False):
             self.state = state
             self.radius = radius
             self.maximum_linf_acceleration_lower_bound = maximum_linf_acceleration_lower_bound
+            self.cylinder = cyclinder
 
-    def __init__(self, maximum_linf_acceleration, aggressiveness, radius):
+    def __init__(self, maximum_linf_acceleration, aggressiveness, radius, room_box):
         self.maximum_linf_acceleration = maximum_linf_acceleration
         self.aggressiveness = aggressiveness
         self.radius = radius
+        self.room_box = room_box
 
     def plan(self, self_state, object_descriptions, desired_acceleration):
         P = 2.0 * np.eye(3)
@@ -38,7 +40,8 @@ class NominalSBC:
         ub = np.array([self.maximum_linf_acceleration] * 3)
 
         for object_description in object_descriptions:
-            relative_position = self_state.position - object_description.state.position
+            dim = 2 if object_description.cylinder else 3
+            relative_position = self_state.position[:dim] - object_description.state.position
             relative_position_norm = np.linalg.norm(relative_position)
             if (abs(relative_position_norm) < 1e-10):
                 return None
@@ -48,7 +51,7 @@ class NominalSBC:
             if (relative_position_norm < safety_distance):
                 return None
 
-            relative_velocity = self_state.velocity - object_description.state.velocity
+            relative_velocity = self_state.velocity[:dim] - object_description.state.velocity
             relative_position_dot_relative_velocity = np.dot(
                 relative_position, relative_velocity)
 
@@ -58,8 +61,8 @@ class NominalSBC:
                               relative_position_dot_relative_velocity / relative_position_norm)
 
             bij = -relative_position_dot_relative_velocity * \
-                  np.dot(relative_position, self_state.velocity) / \
-                  (relative_position_norm * relative_position_norm) + np.dot(relative_velocity, self_state.velocity) + \
+                  np.dot(relative_position, self_state.velocity[:dim]) / \
+                  (relative_position_norm * relative_position_norm) + np.dot(relative_velocity, self_state.velocity[:dim]) + \
                   (self.maximum_linf_acceleration / (self.maximum_linf_acceleration +
                                                      object_description.maximum_linf_acceleration_lower_bound)) * \
                   (self.aggressiveness * hij * hij * hij * relative_position_norm
@@ -68,8 +71,48 @@ class NominalSBC:
                       relative_position_dot_relative_velocity) /
                    (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
 
+            if dim == 2:
+                relative_position = np.append(relative_position, 0.0)
+
             G = np.append(G, [-1.0 * relative_position], axis=0)
             h = np.append(h, bij)
+
+            # Add room box constraints
+            for d in range(3):
+                relative_positions = [
+                    self_state.position[d] - self.room_box[0, d],
+                    self_state.position[d] - self.room_box[1, d]]
+
+                for relative_position in relative_positions:
+                    relative_position_abs = abs(relative_position)
+                    if relative_position_abs < 1e-10:
+                        return None, None
+
+                    if relative_position_abs < self.radius:
+                        return None, None
+
+                    relative_position_times_velocity = relative_position * self_state.velocity[d]
+
+                    hij = math.sqrt(2.0 * self.maximum_linf_acceleration *
+                                    (relative_position_abs - self.radius)) + (
+                                  relative_position_times_velocity /
+                                  relative_position_abs)
+
+                    bij = -relative_position_times_velocity * \
+                          relative_position_times_velocity / \
+                          (relative_position * relative_position) + \
+                          self_state.velocity[d] * self_state.velocity[d] + \
+                          (self.aggressiveness *
+                           hij * hij * hij * relative_position_abs +
+                           (math.sqrt(self.maximum_linf_acceleration) *
+                            relative_position_times_velocity) /
+                           (math.sqrt(2.0 * (relative_position_abs - self.radius))))
+
+                    coefficients = np.zeros((1, 3))
+                    coefficients[0, d] = -1.0 * relative_position
+
+                    G = np.append(G, coefficients, axis=0)
+                    h = np.append(h, bij)
 
         P = spa.csc_matrix(P)
         G = spa.csc_matrix(G)
@@ -356,7 +399,7 @@ class VelocityYawControl(object):
 # using the controller from Mellinger et al. 2011
 class MellingerController(object):
     # @profile
-    def __init__(self, dynamics):
+    def __init__(self, dynamics, room_box):
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
         # Jacobian inverse for our quadrotor
@@ -373,7 +416,7 @@ class MellingerController(object):
 
         self.enable_sbc = True
         self.sbc = NominalSBC(maximum_linf_acceleration=5.0,
-                              aggressiveness=0.1, radius=0.15)
+                              aggressiveness=0.1, radius=0.15, room_box=room_box)
         self.sbc_last_safe_acc = None
 
         self.step_func = self.step

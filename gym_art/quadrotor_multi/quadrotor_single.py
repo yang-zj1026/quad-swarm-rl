@@ -289,7 +289,7 @@ class QuadrotorSingle:
                 raise ValueError(
                     'QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         else:
-            self.controller = MellingerController(self.dynamics)
+            self.controller = MellingerController(self.dynamics, self.room_box)
 
         # ACTIONS
         self.action_space = self.controller.action_space(self.dynamics)
