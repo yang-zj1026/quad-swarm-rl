@@ -98,29 +98,27 @@ class NominalSBC:
                         relative_position_norm - safety_distance)) + (
                           relative_position_dot_relative_velocity / relative_position_norm)
 
-
             bij = -relative_position_dot_relative_velocity * np.dot(
                 relative_position, self_state.velocity[:dim]) / (
-                relative_position_norm * relative_position_norm) + np.dot(
+                          relative_position_norm * relative_position_norm) + np.dot(
                 relative_velocity, self_state.velocity[:dim]) + (
-                self.maximum_linf_acceleration /
-                (self.maximum_linf_acceleration + object_description.
-                 maximum_linf_acceleration_lower_bound)) * (
-                self.aggressiveness * hij * hij * hij * relative_position_norm +
-                (math.sqrt(
-                    self.maximum_linf_acceleration + object_description.
-                    maximum_linf_acceleration_lower_bound) *
-                 relative_position_dot_relative_velocity) /
-                (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
+                          self.maximum_linf_acceleration /
+                          (self.maximum_linf_acceleration + object_description.
+                           maximum_linf_acceleration_lower_bound)) * (
+                          self.aggressiveness * hij * hij * hij * relative_position_norm +
+                          (math.sqrt(
+                              self.maximum_linf_acceleration + object_description.
+                              maximum_linf_acceleration_lower_bound) *
+                           relative_position_dot_relative_velocity) /
+                          (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
 
             if dim == 2:
                 relative_position = np.append(relative_position, 0.0)
 
-
             G = np.append(G, [-1.0 * relative_position], axis=0)
             h = np.append(h, bij)
 
-
+        # Add room box constraints
         for d in range(3):
             relative_positions = [
                 self_state.position[d] - self.room_box[0, d],
@@ -134,24 +132,22 @@ class NominalSBC:
                 if relative_position_abs < self.radius:
                     return None, None
 
-                relative_position_times_velocity = relative_position * \
-                    self_state.velocity[d]
+                relative_position_times_velocity = relative_position * self_state.velocity[d]
 
-                hij = math.sqrt(
-                    2.0 * (self.maximum_linf_acceleration) *
-                    (relative_position_abs - self.radius)) + (
-                    relative_position_times_velocity /
-                    relative_position_abs)
+                hij = math.sqrt(2.0 * self.maximum_linf_acceleration *
+                                (relative_position_abs - self.radius)) + (
+                              relative_position_times_velocity /
+                              relative_position_abs)
 
                 bij = -relative_position_times_velocity * \
-                    relative_position_times_velocity / \
-                    (relative_position * relative_position) + \
-                    self_state.velocity[d] * self_state.velocity[d] + \
-                    (self.aggressiveness *
-                     hij * hij * hij * relative_position_abs +
-                     (math.sqrt(self.maximum_linf_acceleration) *
-                      relative_position_times_velocity) /
-                     (math.sqrt(2.0 * (relative_position_abs - self.radius))))
+                      relative_position_times_velocity / \
+                      (relative_position * relative_position) + \
+                      self_state.velocity[d] * self_state.velocity[d] + \
+                      (self.aggressiveness *
+                       hij * hij * hij * relative_position_abs +
+                       (math.sqrt(self.maximum_linf_acceleration) *
+                        relative_position_times_velocity) /
+                       (math.sqrt(2.0 * (relative_position_abs - self.radius))))
 
                 coefficients = np.zeros((1, 3))
                 coefficients[0, d] = -1.0 * relative_position
@@ -190,7 +186,8 @@ class NominalSBC:
 
         res = solver.solve()
 
-        return (res.x, maximum_distance) if res.info.status_val == osqp.constant("OSQP_SOLVED") else (None, maximum_distance)
+        return (res.x, maximum_distance) if res.info.status_val == osqp.constant("OSQP_SOLVED") else (
+            None, maximum_distance)
 
 
 class RawControl(object):

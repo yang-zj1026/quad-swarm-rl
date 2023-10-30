@@ -34,5 +34,5 @@ python -m swarm_rl.train \
 --quads_collision_falloff_radius=4.0 --quads_collision_reward=5.0 --quads_collision_smooth_max_penalty=10.0 \
 --quads_neighbor_encoder_type=attention --quads_neighbor_visible_num=2 \
 --quads_use_obstacles=True --quads_obstacle_obs_type=octomap \
---experiment=test_rl_sbc
+--experiment=test_rl_sbc --quads_sbc_boundary=0.05 --quads_cost_rl_sbc=0.1
 
