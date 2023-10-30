@@ -15,15 +15,46 @@ class NominalSBC:
             self.velocity = velocity
 
     class ObjectDescription:
-        def __init__(self, state, radius, maximum_linf_acceleration_lower_bound):
+        def __init__(
+                self, state, radius, maximum_linf_acceleration_lower_bound,
+                is_infinite_height_cylinder=False):
             self.state = state
             self.radius = radius
             self.maximum_linf_acceleration_lower_bound = maximum_linf_acceleration_lower_bound
+            self.is_infinite_height_cylinder = is_infinite_height_cylinder
 
-    def __init__(self, maximum_linf_acceleration, aggressiveness, radius):
+    def __init__(
+            self, maximum_linf_acceleration, aggressiveness, radius, room_box):
         self.maximum_linf_acceleration = maximum_linf_acceleration
         self.aggressiveness = aggressiveness
         self.radius = radius
+        self.room_box = room_box
+
+    def _compute_maximum_distance_to_boundary(self, v, G, h):
+        """
+            Computes the maximum distance of v to the constraint boundary
+            defined by Gx <= h.
+
+            If a constraint is satisfied by v, the distance of v to the
+            constraint boundary is negative. Constraints take value zero at the
+            boundary. Distance to violated constraints is positive.
+
+            If the return value is positive, the return value is the distance
+            to the most violated constraint.
+
+            If it is non-positive, all constraints are satisfied,
+            and the return value is the (negated) distance to the
+            closest constraint.
+
+            In any case, we want this value to be minimized.
+        """
+        G_norms = np.linalg.norm(G, axis=1).reshape((-1, 1))
+        G_unit = G / G_norms
+        h = h.reshape((-1, 1))
+        h_norm = h / G_norms
+        v = v.reshape((-1, 1))
+        distances = np.dot(G_unit, v) - h_norm
+        return np.max(distances)
 
         self.P = None
         self.q = None
@@ -42,36 +73,94 @@ class NominalSBC:
         lb = np.array([-self.maximum_linf_acceleration] * 3)
         ub = np.array([self.maximum_linf_acceleration] * 3)
 
+        # Add robot and obstacle collision avoidance constraints
         for object_description in object_descriptions:
-            relative_position = self_state.position - object_description.state.position
+            dim = 2 if object_description.is_infinite_height_cylinder else 3
+
+            relative_position = self_state.position[:
+                                                    dim] - object_description.state.position
             relative_position_norm = np.linalg.norm(relative_position)
-            if abs(relative_position_norm) < 1e-10:
-                return None
+            if relative_position_norm < 1e-10:
+                return None, None
+
             safety_distance = self.radius + object_description.radius
 
             if relative_position_norm < safety_distance:
-                return None
+                return None, None
 
-            relative_velocity = self_state.velocity - object_description.state.velocity
-            relative_position_dot_relative_velocity = np.dot(relative_position, relative_velocity)
+            relative_velocity = self_state.velocity[:
+                                                    dim] - object_description.state.velocity
+            relative_position_dot_relative_velocity = np.dot(
+                relative_position, relative_velocity)
 
             hij = math.sqrt(
                 2.0 * (self.maximum_linf_acceleration + object_description.maximum_linf_acceleration_lower_bound) * (
                         relative_position_norm - safety_distance)) + (
                           relative_position_dot_relative_velocity / relative_position_norm)
 
-            bij = -relative_position_dot_relative_velocity * np.dot(relative_position, self_state.velocity) / \
-                  (relative_position_norm * relative_position_norm) + np.dot(relative_velocity, self_state.velocity) + \
-                  (self.maximum_linf_acceleration / (self.maximum_linf_acceleration +
-                                                     object_description.maximum_linf_acceleration_lower_bound)) * \
-                  (self.aggressiveness * hij * hij * hij * relative_position_norm
-                   + (math.sqrt(self.maximum_linf_acceleration +
-                                object_description.maximum_linf_acceleration_lower_bound) *
-                      relative_position_dot_relative_velocity) /
-                   (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
+
+            bij = -relative_position_dot_relative_velocity * np.dot(
+                relative_position, self_state.velocity[:dim]) / (
+                relative_position_norm * relative_position_norm) + np.dot(
+                relative_velocity, self_state.velocity[:dim]) + (
+                self.maximum_linf_acceleration /
+                (self.maximum_linf_acceleration + object_description.
+                 maximum_linf_acceleration_lower_bound)) * (
+                self.aggressiveness * hij * hij * hij * relative_position_norm +
+                (math.sqrt(
+                    self.maximum_linf_acceleration + object_description.
+                    maximum_linf_acceleration_lower_bound) *
+                 relative_position_dot_relative_velocity) /
+                (math.sqrt(2.0 * (relative_position_norm - safety_distance))))
+
+            if dim == 2:
+                relative_position = np.append(relative_position, 0.0)
+
 
             G = np.append(G, [-1.0 * relative_position], axis=0)
             h = np.append(h, bij)
+
+
+        for d in range(3):
+            relative_positions = [
+                self_state.position[d] - self.room_box[0, d],
+                self_state.position[d] - self.room_box[1, d]]
+
+            for relative_position in relative_positions:
+                relative_position_abs = abs(relative_position)
+                if relative_position_abs < 1e-10:
+                    return None, None
+
+                if relative_position_abs < self.radius:
+                    return None, None
+
+                relative_position_times_velocity = relative_position * \
+                    self_state.velocity[d]
+
+                hij = math.sqrt(
+                    2.0 * (self.maximum_linf_acceleration) *
+                    (relative_position_abs - self.radius)) + (
+                    relative_position_times_velocity /
+                    relative_position_abs)
+
+                bij = -relative_position_times_velocity * \
+                    relative_position_times_velocity / \
+                    (relative_position * relative_position) + \
+                    self_state.velocity[d] * self_state.velocity[d] + \
+                    (self.aggressiveness *
+                     hij * hij * hij * relative_position_abs +
+                     (math.sqrt(self.maximum_linf_acceleration) *
+                      relative_position_times_velocity) /
+                     (math.sqrt(2.0 * (relative_position_abs - self.radius))))
+
+                coefficients = np.zeros((1, 3))
+                coefficients[0, d] = -1.0 * relative_position
+
+                G = np.append(G, coefficients, axis=0)
+                h = np.append(h, bij)
+
+        maximum_distance = self._compute_maximum_distance_to_boundary(
+            desired_acceleration, G, h)
 
         P = spa.csc_matrix(P)
         G = spa.csc_matrix(G)
@@ -101,7 +190,7 @@ class NominalSBC:
 
         res = solver.solve()
 
-        return res.x if res.info.status_val == osqp.constant("OSQP_SOLVED") else None
+        return (res.x, maximum_distance) if res.info.status_val == osqp.constant("OSQP_SOLVED") else (None, maximum_distance)
 
 
 class RawControl(object):
@@ -155,7 +244,8 @@ class VerticalControl(object):
         elif self.dim_mode == '3D':
             self.step = self.step3D
         else:
-            raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
+            raise ValueError(
+                'QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         self.step_func = self.step
 
     def action_space(self, dynamics):
@@ -199,7 +289,8 @@ class VertPlaneControl(object):
         elif self.dim_mode == '3D':
             self.step = self.step3D
         else:
-            raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
+            raise ValueError(
+                'QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         self.step_func = self.step
 
     def action_space(self, dynamics):
@@ -222,7 +313,8 @@ class VertPlaneControl(object):
         # print('action: ', action)
         action = self.scale * (action + self.bias)
         action = np.clip(action, a_min=self.low, a_max=self.high)
-        dynamics.step(np.array([action[0], action[0], action[1], action[1]]), dt)
+        dynamics.step(
+            np.array([action[0], action[0], action[1], action[1]]), dt)
 
     # modifies the dynamics in place.
     # @profile
@@ -332,7 +424,7 @@ class VelocityYawControl(object):
 # using the controller from Mellinger et al. 2011
 class MellingerController(object):
     # @profile
-    def __init__(self, dynamics, sbc_radius, sbc_aggressive):
+    def __init__(self, dynamics, sbc_radius, sbc_aggressive, room_box):
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
         # Jacobian inverse for our quadrotor
@@ -349,7 +441,9 @@ class MellingerController(object):
 
         self.enable_sbc = True
         # maximum_linf_acceleration, max_acc in any dimension
-        self.sbc = NominalSBC(maximum_linf_acceleration=2.0, aggressiveness=sbc_aggressive, radius=sbc_radius)
+        self.sbc = NominalSBC(
+            maximum_linf_acceleration=2.0, aggressiveness=sbc_aggressive,
+            radius=sbc_radius, room_box=room_box)
 
         self.sbc_last_safe_acc = None
 
@@ -357,14 +451,19 @@ class MellingerController(object):
 
     # modifies the dynamics in place.
     # @profile
+
     def step(self, dynamics, acc_des, dt, observation=None):
         # to_goal = goal - dynamics.pos
         # e_p = -clamp_norm(to_goal, 4.0)
         # e_v = dynamics.vel
         # acc_des = -self.kp_p * e_p - self.kd_p * e_v
+        sbc_distance_to_boundary = None
 
         if self.enable_sbc and observation is not None:
-            new_acc = self.sbc.plan(observation["self_state"], observation["neighbor_descriptions"], acc_des)
+            new_acc, sbc_distance_to_boundary = self.sbc.plan(
+                observation["self_state"],
+                observation["neighbor_descriptions"],
+                acc_des)
 
             if new_acc is not None:
                 self.sbc_last_safe_acc = new_acc
@@ -404,7 +503,8 @@ class MellingerController(object):
 
         dynamics.step(thrusts, dt)
         self.action = thrusts.copy()
-        return self.action, acc_des_without_grav  # TODO: Check with Baskin, originally, it was new_acc
+        # TODO: Check with Baskin, originally, it was new_acc
+        return self.action, acc_des_without_grav, sbc_distance_to_boundary
 
     # def action_space(self, dynamics):
     #     circle_per_sec = 2 * np.pi
