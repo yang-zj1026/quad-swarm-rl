@@ -1,10 +1,8 @@
 import osqp
-import scipy
 from numpy.linalg import norm
 from gymnasium import spaces
 from gym_art.quadrotor_multi.quad_utils import *
-import cvxpy as cp
-import cvxpygen
+import scipy.sparse as spa
 import math
 
 GRAV = 9.81
@@ -27,11 +25,22 @@ class NominalSBC:
         self.aggressiveness = aggressiveness
         self.radius = radius
 
+        self.P = None
+        self.q = None
+        self.G = None
+        self.h = None
+        self.x = None
+        self.qp_problem = None
+
     def plan(self, self_state, object_descriptions, desired_acceleration):
         P = 2.0 * np.eye(3)
         q = -2.0 * desired_acceleration
         G = np.ndarray((0, 3), np.float64)
         h = np.array([])
+        A = np.ndarray((0, 3), np.float64)
+        b = np.array([])
+        lb = np.array([-self.maximum_linf_acceleration] * 3)
+        ub = np.array([self.maximum_linf_acceleration] * 3)
 
         for object_description in object_descriptions:
             relative_position = self_state.position - object_description.state.position
@@ -64,29 +73,35 @@ class NominalSBC:
             G = np.append(G, [-1.0 * relative_position], axis=0)
             h = np.append(h, bij)
 
-        m = 80
-        n = 3
-        _P = cp.Parameter((n, n), name='P', PSD=True)
-        _q = cp.Parameter(n, name='q')
-        _G = cp.Parameter((m, n), name='G')
-        _h = cp.Parameter(m, name='h')
+        P = spa.csc_matrix(P)
+        G = spa.csc_matrix(G)
+        A = spa.csc_matrix(A)
 
-        _P.value = P
-        _q.value = q
-        _G.value = G
-        _h.value = h
+        A_osqp = None
+        l_osqp = None
+        u_osqp = None
+        if G is not None and h is not None:
+            A_osqp = G
+            l_osqp = np.full(h.shape, -np.infty)
+            u_osqp = h
+        if A is not None and b is not None:
+            A_osqp = A if A_osqp is None else spa.vstack([A_osqp, A], format="csc")
+            l_osqp = b if l_osqp is None else np.hstack([l_osqp, b])
+            u_osqp = b if u_osqp is None else np.hstack([u_osqp, b])
+        if lb is not None or ub is not None:
+            lb = lb if lb is not None else np.full(q.shape, -np.infty)
+            ub = ub if ub is not None else np.full(q.shape, +np.infty)
+            E = spa.eye(q.shape[0])
+            A_osqp = E if A_osqp is None else spa.vstack([A_osqp, E], format="csc")
+            l_osqp = lb if l_osqp is None else np.hstack([l_osqp, lb])
+            u_osqp = ub if u_osqp is None else np.hstack([u_osqp, ub])
 
-        # Define and solve the CVXPY problem.
-        _x = cp.Variable(n, name='x')
-        quad_form = cp.sum_squares(_P @ _x)
+        solver = osqp.OSQP()
+        solver.setup(P=P, q=q, A=A_osqp, l=l_osqp, u=u_osqp, verbose=False)
 
-        from gym_art.qpsolver.cpg_solver import cpg_solve
-        prob = cp.Problem(cp.Minimize((1 / 2) * quad_form + _q.T @ _x),
-                          [_G @ _x <= _h, -self.maximum_linf_acceleration <= _x, _x <= self.maximum_linf_acceleration])
-        prob.register_solve('cpg', cpg_solve)
-        prob.solve(method='cpg', updated_params=['P', 'q', 'G', 'h'])
+        res = solver.solve()
 
-        return _x.value if prob.status == cp.OPTIMAL else None
+        return res.x if res.info.status_val == osqp.constant("OSQP_SOLVED") else None
 
 
 class RawControl(object):

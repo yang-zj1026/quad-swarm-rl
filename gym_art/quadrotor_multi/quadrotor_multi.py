@@ -211,6 +211,8 @@ class QuadrotorEnvMulti(gym.Env):
         # self.action_min = -1.0 * self.envs[0].dynamics.acc_max
         self.action_max = 2.0
 
+        self.step_time_buffer = deque([], maxlen=100)
+
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
 
@@ -420,6 +422,9 @@ class QuadrotorEnvMulti(gym.Env):
 
         obs, rewards, dones, infos = [], [], [], []
 
+        self.compute_time = 0
+        start_time = time.time()
+
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
 
@@ -428,75 +433,73 @@ class QuadrotorEnvMulti(gym.Env):
             neighbor_descriptions = []
 
             # Add neighbor robot descriptions
-            # for j in range(len(actions)):
-            #     if i == j:
-            #         continue
-            #
-            #     if np.linalg.norm(self_state.position - self.envs[j].dynamics.pos) < 5.0:
-            #         neighbor_descriptions.append(NominalSBC.ObjectDescription(
-            #                 state=NominalSBC.State(
-            #                     position=self.envs[j].dynamics.pos,
-            #                     velocity=self.envs[j].dynamics.vel
-            #                 ),
-            #                 radius=self.envs[j].controller.sbc.radius,
-            #                 maximum_linf_acceleration_lower_bound=self.envs[j].controller.sbc.maximum_linf_acceleration
-            #             )
-            #         )
-            neighbor_dis = np.array([np.linalg.norm(self_state.position - self.envs[j].dynamics.pos) for j in range(len(actions))])
-            nearest_neighbor_idx = np.argsort(neighbor_dis)[1:self.num_use_neighbor_obs+1]
-            for j in nearest_neighbor_idx:
-                neighbor_descriptions.append(NominalSBC.ObjectDescription(
-                        state=NominalSBC.State(
-                            position=self.envs[j].dynamics.pos,
-                            velocity=self.envs[j].dynamics.vel
-                        ),
-                        radius=self.envs[j].controller.sbc.radius,
-                        maximum_linf_acceleration_lower_bound=self.envs[j].controller.sbc.maximum_linf_acceleration
+            for j in range(len(actions)):
+                if i == j:
+                    continue
+
+                if np.linalg.norm(self_state.position - self.envs[j].dynamics.pos) < 5.0:
+                    neighbor_descriptions.append(NominalSBC.ObjectDescription(
+                            state=NominalSBC.State(
+                                position=self.envs[j].dynamics.pos,
+                                velocity=self.envs[j].dynamics.vel
+                            ),
+                            radius=self.envs[j].controller.sbc.radius,
+                            maximum_linf_acceleration_lower_bound=self.envs[j].controller.sbc.maximum_linf_acceleration
+                        )
                     )
-                )
-
-
+            # neighbor_dis = np.array([np.linalg.norm(self_state.position - self.envs[j].dynamics.pos) for j in range(len(actions))])
+            # nearest_neighbor_idx = np.argsort(neighbor_dis)[1:self.num_use_neighbor_obs+1]
+            # for j in nearest_neighbor_idx:
+            #     neighbor_descriptions.append(NominalSBC.ObjectDescription(
+            #             state=NominalSBC.State(
+            #                 position=self.envs[j].dynamics.pos,
+            #                 velocity=self.envs[j].dynamics.vel
+            #             ),
+            #             radius=self.envs[j].controller.sbc.radius,
+            #             maximum_linf_acceleration_lower_bound=self.envs[j].controller.sbc.maximum_linf_acceleration
+            #         )
+            #     )
 
             # Add neighbor obstacle descriptions
             # TODO: Can we optimize this part?
-            # for obst_pose in self.obst_pos_arr:
-            #     x, y = obst_pose[0], obst_pose[1]
-            #     if np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0:
-            #         z = 0.0
-            #         while z < self.room_dims[2]:
-            #             if np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0:
-            #                 neighbor_descriptions.append(
-            #                     NominalSBC.ObjectDescription(
-            #                         state=NominalSBC.State(
-            #                             position=np.array([x, y, z]),
-            #                             velocity=np.zeros(3)
-            #                         ),
-            #                         radius=self.obst_size*0.5,
-            #                         maximum_linf_acceleration_lower_bound=0.0
-            #                     )
-            #                 )
-            #             z += self.obst_size * 0.5
-
-            # Add four nearest obstacle descriptions
-            obst_dis = [np.linalg.norm(self_state.position[:2] - obst_pose[:2]) for obst_pose in self.obst_pos_arr]
-            nearest_obst_indices = np.argsort(obst_dis)[:4]
-            for j in nearest_obst_indices:
-                x, y = self.obst_pos_arr[j][0], self.obst_pos_arr[j][1]
-                if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
+            for obst_pose in self.obst_pos_arr:
+                x, y = obst_pose[0], obst_pose[1]
+                if np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0:
                     z = 0.0
                     while z < self.room_dims[2]:
-                        if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
+                        if np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0:
                             neighbor_descriptions.append(
-                                                    NominalSBC.ObjectDescription(
-                                                        state=NominalSBC.State(
-                                                            position=np.array([x, y, z]),
-                                                            velocity=np.zeros(3)
-                                                        ),
-                                                        radius=self.obst_size*0.5,
-                                                        maximum_linf_acceleration_lower_bound=0.0
-                                                    )
-                                                )
+                                NominalSBC.ObjectDescription(
+                                    state=NominalSBC.State(
+                                        position=np.array([x, y, z]),
+                                        velocity=np.zeros(3)
+                                    ),
+                                    radius=self.obst_size*0.5,
+                                    maximum_linf_acceleration_lower_bound=0.0
+                                )
+                            )
                         z += self.obst_size * 0.5
+
+            # # Add four nearest obstacle descriptions
+            # obst_dis = [np.linalg.norm(self_state.position[:2] - obst_pose[:2]) for obst_pose in self.obst_pos_arr]
+            # nearest_obst_indices = np.argsort(obst_dis)[:4]
+            # for j in nearest_obst_indices:
+            #     x, y = self.obst_pos_arr[j][0], self.obst_pos_arr[j][1]
+            #     if (np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0):
+            #         z = 0.0
+            #         while z < self.room_dims[2]:
+            #             if (np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0):
+            #                 neighbor_descriptions.append(
+            #                                         NominalSBC.ObjectDescription(
+            #                                             state=NominalSBC.State(
+            #                                                 position=np.array([x, y, z]),
+            #                                                 velocity=np.zeros(3)
+            #                                             ),
+            #                                             radius=self.obst_size*0.5,
+            #                                             maximum_linf_acceleration_lower_bound=0.0
+            #                                         )
+            #                                     )
+            #             z += self.obst_size * 0.5
 
             if len(neighbor_descriptions) < 80:
                 repet_neighor_descriptions = [neighbor_descriptions[-1] for _ in range(80 - len(neighbor_descriptions))]
@@ -517,6 +520,12 @@ class QuadrotorEnvMulti(gym.Env):
             infos.append(info)
 
             self.pos[i, :] = self.envs[i].dynamics.pos
+
+        self.compute_time = time.time() - start_time
+        self.step_time_buffer.append(self.compute_time)
+        if len(self.step_time_buffer) % 100 == 0:
+            print("Avg step time: ", np.mean(self.step_time_buffer))
+            self.step_time_buffer.clear()
 
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones
