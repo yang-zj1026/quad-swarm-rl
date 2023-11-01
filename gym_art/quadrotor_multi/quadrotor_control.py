@@ -54,14 +54,7 @@ class NominalSBC:
         h_norm = h / G_norms
         v = v.reshape((-1, 1))
         distances = np.dot(G_unit, v) - h_norm
-        return np.max(distances)
-
-        self.P = None
-        self.q = None
-        self.G = None
-        self.h = None
-        self.x = None
-        self.qp_problem = None
+        return max(np.max(distances), 0)
 
     def plan(self, self_state, object_descriptions, desired_acceleration):
         P = 2.0 * np.eye(3)
