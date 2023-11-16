@@ -398,7 +398,7 @@ class QuadrotorEnvMulti(gym.Env):
                 num_obstacles=self.num_obstacles, scene_index=i
             ))
 
-    def reset(self, obst_density=None, obst_size=None):
+    def reset(self, seed=None, obst_density=None, obst_size=None):
         obs, rewards, dones, infos = [], [], [], []
 
         if obst_density:

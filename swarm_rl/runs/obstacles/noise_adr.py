@@ -4,8 +4,7 @@ from swarm_rl.runs.obstacles.quad_obstacle_baseline import QUAD_BASELINE_CLI_8
 _params = ParamGrid(
     [
         ("seed", [0000, 1111]),
-        ("quads_pos_std_step", [0.0025, 0.005, 0.0075, 0.01]),
-        ("use_noise_adr", [True]),
+        ("use_adr", [True]),
     ]
 )
 
@@ -13,11 +12,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     ' --num_workers=36 --num_envs_per_worker=4 '
     '--quads_neighbor_visible_num=2 --quads_neighbor_obs_type=pos_vel --quads_encoder_type=attention '
     '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones '
-    '--wandb_group=noise_pos_adr'
+    '--wandb_group=noise_adr'
 )
 
 _experiment = Experiment(
-    "pos_noise_adr",
+    "noise_adr",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )

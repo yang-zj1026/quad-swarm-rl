@@ -69,8 +69,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sense_noise=sense_noise, init_random_state=False, pos_rew_coeff=cfg.quads_pos_reward,
     )
 
-    if cfg.use_noise_adr:
-        env = ADRNoiseWrapper(env, cfg.quads_pos_std_init, cfg.quads_pos_std_step, buffer_max_len=10)
+    if cfg.use_adr:
+        env = ADRNoiseWrapper(env, cfg.adr_cfg)
 
     if use_replay_buffer:
         env = ExperienceReplayWrapper(env, cfg.replay_buffer_sample_prob, cfg.quads_obst_density, cfg.quads_obst_size,
