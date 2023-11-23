@@ -9,8 +9,8 @@ DEFAULT_QUAD_REWARD_SHAPING_SINGLE = dict(
         effort=0.05, spin=0.1, vel=0.0, crash=1.0, orient=1.0, yaw=0.0
     ),
     quad_noises=dict(
-        pos_norm_std=0.005, pos_unif_range=0., vel_norm_std=0.01, vel_unif_range=0.,
-        quat_norm_std=0., quat_unif_range=0., gyro_norm_std=0.
+        pos_norm_std=0.05, pos_unif_range=0., vel_norm_std=0.005, vel_unif_range=0.,
+        quat_norm_std=0.005, quat_unif_range=0., gyro_norm_std=0.005
     )
 )
 
