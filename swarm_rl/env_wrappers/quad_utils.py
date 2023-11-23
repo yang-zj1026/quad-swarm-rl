@@ -100,7 +100,14 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         }
         if cfg.anneal_noise_steps > 0:
             reward_shaping['quad_noises']['pos_norm_std'] = 0.0
+            reward_shaping['quad_noises']['vel_norm_std'] = 0.0
+            reward_shaping['quad_noises']['quat_norm_std'] = 0.0
+            reward_shaping['quad_noises']['gyro_norm_std'] = 0.0
+
             annealing['noises'] = [AnnealSchedule('pos_norm_std', cfg.quads_noise_pos_max, cfg.anneal_noise_steps)]
+            annealing['noises'] += [AnnealSchedule('vel_norm_std', cfg.quads_noise_vel_max, cfg.anneal_noise_steps)]
+            annealing['noises'] += [AnnealSchedule('quat_norm_std', cfg.quads_noise_quat_max, cfg.anneal_noise_steps)]
+            annealing['noises'] += [AnnealSchedule('gyro_norm_std', cfg.quads_noise_gyro_max, cfg.anneal_noise_steps)]
     else:
         annealing = None
 
